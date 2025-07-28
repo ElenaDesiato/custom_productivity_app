@@ -9,6 +9,12 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Expo shared settings
+.expo-shared/
+
+# Android keystore files
+*.keystore
+
 # Native
 .kotlin/
 *.orig.*
@@ -43,3 +49,22 @@ cursor-chat-history.json
 *.code-workspace
 
 app-example
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+
+# macOS resource fork files
+Icon?
+
+# JetBrains IDEs
+.idea/
+
+# Test coverage
+coverage/
+
+# Log files
+*.log
+
+# Environment files
+.env

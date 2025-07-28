@@ -1,0 +1,44 @@
+# Productivity App Project Rules
+
+## 1. Platform & Technology
+- Build as a cross-platform mobile app using **React Native** (Expo) and **TypeScript**.
+- Target platform: **Android** (future extensibility for iOS allowed).
+- Enforce ESLint and Prettier formatting conventions.
+
+## 2. Security & Privacy
+- All user data must be stored **locally** on the device using secure storage (e.g., Expo SecureStore, SQLite, or MMKV).
+- Do not use third-party analytics or tracking libraries.
+- All sensitive operations (e.g., backup/restore) must use encrypted storage.
+
+## 3. Availability & Data Integrity
+- The app must function **offline** and be available 24/7 as long as the app is open on the device.
+- Implement regular, automatic local backups of all user data (e.g., daily or on app close).
+- Provide a manual backup/export option for the user (e.g., to a local file).
+
+## 4. User Experience & UI
+- Use **tab-based navigation** (e.g., React Navigation's Tab Navigator) with clear, simple tabs for each main feature.
+- Design must be minimal, intuitive, and accessible.
+- All primary actions (e.g., start/stop timer, add task) should be achievable in 1–2 taps.
+- Use consistent, idiomatic naming and group related files into folders (e.g., `components/`, `hooks/`, `screens/`).
+
+## 5. Time Tracking Features
+- Users can start/stop a timer for a task with a single tap, then select or create a task.
+- Tasks can be organized into projects.
+- A "Timesheet" tab displays the current week, showing hours spent per day and per task. Tapping a day shows a summary of tasks for that day.
+- A "Reports" tab provides graphical and numerical breakdowns of time spent by task/project for this week, last week, this month, last month, or a custom range.
+
+## 6. Code Quality & Maintainability
+- Write modular, reusable, and self-documenting code.
+- Use comments only where necessary for clarity.
+- Avoid unnecessary dependencies; prefer built-in or well-maintained libraries.
+- Structure code for long-term maintainability and scalability.
+
+## 7. Project Goals
+1. **Personal, Secure Mobile Productivity App:** Privacy-first, single-user Android app using React Native (Expo) and TypeScript, focused on time tracking and productivity.
+2. **Local-Only Data Storage:** All user data is securely stored on-device and never leaves the device or is exposed to the internet.
+3. **Reliable, Always-Available Experience:** The app works offline, is always available when open, and automatically backs up user data locally.
+4. **Intuitive Time Tracking:** Users can easily track time spent on tasks and projects with a simple start/stop timer and quick task selection.
+5. **Organized Task & Project Management:** Tasks are organized into projects for better structure and reporting.
+6. **Comprehensive Timesheet & Reporting:** Users can view weekly timesheets and generate reports (graphical and numerical) for various timeframes, with breakdowns by task and project.
+7. **Simple, Tab-Based UI:** The app uses a clean, tabbed interface for easy navigation between time tracking, timesheet, and reports.
+8. **Future Extensions:** The app will be extended to include productivity such as goals, calendar, todolist, etc. Make sure the UI and code reflects this and allows easy extendability.
