@@ -389,6 +389,7 @@ export default function TimerScreen() {
            mode={startPickerMode}
            display="default"
            onChange={handleStartDateChange}
+           maximumDate={new Date()}
          />
        )}
        
@@ -398,6 +399,7 @@ export default function TimerScreen() {
            mode={endPickerMode}
            display="default"
            onChange={handleEndDateChange}
+           maximumDate={new Date()}
          />
        )}
     </ThemedView>

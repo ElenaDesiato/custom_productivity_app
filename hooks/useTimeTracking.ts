@@ -490,6 +490,18 @@ export function useTimeTracking() {
     await saveData(STORAGE_KEYS.TIME_ENTRIES, updatedTimeEntries);
   }, [timeEntries]);
 
+  // Update time entry
+  const updateTimeEntry = useCallback(async (entryId: string, updates: Partial<TimeEntry>) => {
+    const updatedTimeEntries = timeEntries.map(entry => {
+      if (entry.id === entryId) {
+        return { ...entry, ...updates };
+      }
+      return entry;
+    });
+    setTimeEntries(updatedTimeEntries);
+    await saveData(STORAGE_KEYS.TIME_ENTRIES, updatedTimeEntries);
+  }, [timeEntries]);
+
   // Get tasks by project
   const getTasksByProject = useCallback((projectId: string) => {
     return tasks.filter(task => task.projectId === projectId);
@@ -547,6 +559,7 @@ export function useTimeTracking() {
     resumeTimer,
     addTimeEntry,
     deleteTimeEntry,
+    updateTimeEntry,
     
     // Utility functions
     getTasksByProject,

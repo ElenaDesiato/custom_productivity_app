@@ -6,9 +6,10 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { TimeEntry } from '@/types/timeTracking';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Animated, Dimensions, Easing, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Easing, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 // Remove all react-native-svg and AnimatedRect imports and code
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -41,9 +42,18 @@ const INSPIRATIONAL_MESSAGES = [
 
 export default function TimesheetScreen() {
   const colorScheme = useColorScheme();
-  const { timeEntries, projects, tasks, getTaskById, deleteTimeEntry, timerState, loadData } = useTimeTracking();
+  const { timeEntries, projects, tasks, getTaskById, deleteTimeEntry, timerState, loadData, updateTimeEntry } = useTimeTracking();
   const [selectedWeek, setSelectedWeek] = useState(0); // 0 = current week, -1 = last week, 1 = next week
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+  const [editTaskId, setEditTaskId] = useState('');
+  const [editStartDate, setEditStartDate] = useState(new Date());
+  const [editEndDate, setEditEndDate] = useState(new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -231,6 +241,49 @@ export default function TimesheetScreen() {
     } else {
       // Show the day even if it has no entries, so we can display a message
       setSelectedDay(selectedDay?.toDateString() === date.toDateString() ? null : date);
+    }
+  };
+
+  // Handle edit time entry
+  const handleEditEntry = (entry: TimeEntry) => {
+    if (entry.id === 'running') return; // Don't allow editing running timer
+    
+    setEditingEntry(entry);
+    setEditTaskId(entry.taskId);
+    setEditStartDate(new Date(entry.startTime));
+    setEditEndDate(entry.endTime ? new Date(entry.endTime) : new Date());
+    setShowEditModal(true);
+  };
+
+  // Handle edit submission
+  const handleEditSubmit = async () => {
+    if (!editingEntry || !editTaskId) return;
+
+    const newDuration = Math.floor((editEndDate.getTime() - editStartDate.getTime()) / 1000);
+    
+    await updateTimeEntry(editingEntry.id, {
+      taskId: editTaskId,
+      startTime: editStartDate,
+      endTime: editEndDate,
+      duration: newDuration,
+    });
+
+    setShowEditModal(false);
+    setEditingEntry(null);
+  };
+
+  // Handle date picker changes
+  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+    setShowStartPicker(false);
+    if (selectedDate) {
+      setEditStartDate(selectedDate);
+    }
+  };
+
+  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+    setShowEndPicker(false);
+    if (selectedDate) {
+      setEditEndDate(selectedDate);
     }
   };
 
@@ -510,6 +563,14 @@ export default function TimesheetScreen() {
                             formatTime(entry.duration || 0)
                           }
                         </ThemedText>
+                        {entry.id !== 'running' && !entry.isPaused && (
+                          <TouchableOpacity
+                            onPress={() => handleEditEntry(entry)}
+                            style={styles.editButton}
+                          >
+                            <IconSymbol name="edit" size={16} color="#2196F3" />
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </View>
 
@@ -545,6 +606,129 @@ export default function TimesheetScreen() {
             </View>
           )}
         </View>
+      )}
+
+      {/* Edit Time Entry Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <ThemedView style={styles.modalContainer}>
+          <View style={[styles.modalHeader, { borderBottomColor: Colors[colorScheme ?? 'light'].border }]}>
+            <ThemedText style={styles.modalTitle}>Edit Time Entry</ThemedText>
+            <TouchableOpacity
+              onPress={() => setShowEditModal(false)}
+              style={styles.closeButton}
+            >
+              <IconSymbol name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            {/* Task Selection */}
+            <View style={styles.formSection}>
+              <ThemedText style={styles.formLabel}>Task</ThemedText>
+              <ScrollView style={[styles.taskList, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}>
+                {projects.map(project => {
+                  const projectTasks = tasks.filter(task => task.projectId === project.id);
+                  if (projectTasks.length === 0) return null;
+
+                  return (
+                    <View key={project.id} style={[styles.projectSection, { borderBottomColor: Colors[colorScheme ?? 'light'].border }]}>
+                      <View style={styles.projectHeader}>
+                        <View style={[styles.projectDot, { backgroundColor: project.color }]} />
+                        <ThemedText style={styles.projectName}>{project.name}</ThemedText>
+                      </View>
+                      {projectTasks.map(task => (
+                        <TouchableOpacity
+                          key={task.id}
+                          style={[
+                            styles.taskItem,
+                            editTaskId === task.id && [styles.taskItemSelected, { backgroundColor: Colors[colorScheme ?? 'light'].tint + '20', borderColor: Colors[colorScheme ?? 'light'].tint }],
+                          ]}
+                          onPress={() => setEditTaskId(task.id)}
+                        >
+                          <TaskColorIndicator
+                            projectColor={project.color}
+                            taskColor={task.color}
+                            size={14}
+                          />
+                          <ThemedText
+                            style={[
+                              styles.taskName,
+                              editTaskId === task.id && [styles.taskNameSelected, { color: Colors[colorScheme ?? 'light'].tint }],
+                            ]}
+                          >
+                            {task.name}
+                          </ThemedText>
+                          {editTaskId === task.id && (
+                            <IconSymbol name="check-circle" size={16} color={Colors[colorScheme ?? 'light'].tint} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Time Selection */}
+            <View style={styles.formSection}>
+              <ThemedText style={styles.formLabel}>Time</ThemedText>
+              
+              <View style={styles.timeInputContainer}>
+                <ThemedText style={styles.timeLabel}>Start Time</ThemedText>
+                <TouchableOpacity
+                  style={[styles.timeInput, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}
+                  onPress={() => setShowStartPicker(true)}
+                >
+                  <ThemedText style={[styles.timeInputValue, { color: Colors[colorScheme ?? 'light'].text }]}>
+                    {editStartDate.toLocaleString()}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.timeInputContainer}>
+                <ThemedText style={styles.timeLabel}>End Time</ThemedText>
+                <TouchableOpacity
+                  style={[styles.timeInput, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}
+                  onPress={() => setShowEndPicker(true)}
+                >
+                  <ThemedText style={[styles.timeInputValue, { color: Colors[colorScheme ?? 'light'].text }]}>
+                    {editEndDate.toLocaleString()}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+              onPress={handleEditSubmit}
+            >
+              <ThemedText type="secondary" style={styles.saveButtonText}>Save Changes</ThemedText>
+            </TouchableOpacity>
+          </ScrollView>
+        </ThemedView>
+      </Modal>
+
+      {/* Date/Time Pickers */}
+      {showStartPicker && (
+        <DateTimePicker
+          value={editStartDate}
+          mode="datetime"
+          display="default"
+          onChange={handleStartDateChange}
+        />
+      )}
+      
+      {showEndPicker && (
+        <DateTimePicker
+          value={editEndDate}
+          mode="datetime"
+          display="default"
+          onChange={handleEndDateChange}
+        />
       )}
     </ThemedView>
   );
@@ -887,5 +1071,113 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  entryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editButton: {
+    padding: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  modalContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  formSection: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  taskList: {
+    maxHeight: 200,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  projectSection: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+  },
+  projectHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  projectDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  projectName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  taskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  taskItemSelected: {
+    borderWidth: 1,
+  },
+  taskName: {
+    flex: 1,
+    fontSize: 14,
+    marginLeft: 10,
+  },
+  taskNameSelected: {
+    fontWeight: 'bold',
+  },
+  timeInputContainer: {
+    marginBottom: 15,
+  },
+  timeLabel: {
+    fontSize: 14,
+    marginBottom: 5,
+  },
+  timeInput: {
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+  },
+  timeInputValue: {
+    fontSize: 16,
+  },
+  saveButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

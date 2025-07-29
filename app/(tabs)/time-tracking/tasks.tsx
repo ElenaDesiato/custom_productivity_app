@@ -355,7 +355,7 @@ export default function TasksScreen() {
 
             {!editingTask && (
               <>
-                <ThemedText style={styles.projectLabel}>Select project:</ThemedText>
+                <ThemedText style={[styles.projectLabel, { color: Colors[colorScheme ?? 'light'].text }]}>Select project:</ThemedText>
                 <ScrollView style={styles.projectSelector}>
                   {projects.map(project => (
                     <TouchableOpacity
@@ -393,7 +393,7 @@ export default function TasksScreen() {
                     taskColor={selectedTaskColor}
                     size={24}
                   />
-                  <ThemedText type="secondary" style={styles.colorPreviewText}>
+                  <ThemedText style={styles.colorPreviewText}>
                     {selectedTaskColor ? 'Custom color' : 'Project color'}
                   </ThemedText>
                 </View>
@@ -406,7 +406,7 @@ export default function TasksScreen() {
                     ]}
                     onPress={() => setSelectedTaskColor(undefined)}
                   >
-                    <ThemedText style={styles.colorOptionText}>None</ThemedText>
+                    <ThemedText style={[styles.colorOptionText, { color: Colors[colorScheme ?? 'light'].text }]}>None</ThemedText>
                   </TouchableOpacity>
                   {PROJECT_COLORS.map(color => (
                     <TouchableOpacity
@@ -618,9 +618,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   colorOptionText: {
-    fontSize: 12,
+    fontSize: 10,
     textAlign: 'center',
     color: '#666',
+    lineHeight: 30,
   },
   projectLabel: {
     fontSize: 16,

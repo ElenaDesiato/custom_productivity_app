@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import { PieChart as ChartKitPieChart } from 'react-native-chart-kit';
+import Svg, { Defs, G, LinearGradient, Path, Stop } from 'react-native-svg';
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
 
@@ -21,55 +21,101 @@ export function PieChart({ data, size = 250 }: PieChartProps) {
   const colors = Colors[colorScheme ?? 'light'];
 
   if (data.length === 0) {
-    return (
-      <View style={[styles.container, { width: size, height: size }]}>
-        <Text style={[styles.emptyText, { color: colors.text }]}>No data</Text>
-      </View>
-    );
+    return null;
   }
 
-  // Transform data for the chart-kit library
-  const chartData = data.map((item, index) => ({
-    name: item.label,
-    population: item.value,
-    color: item.color,
-    legendFontColor: colors.text,
-    legendFontSize: 12,
-  }));
-
   const screenWidth = Dimensions.get('window').width;
-  const availableWidth = screenWidth - 80; // Account for container padding
-  const chartWidth = availableWidth * 0.6; // 60% for chart
-  const legendWidth = availableWidth * 0.35; // 35% for legend (5% for spacing)
+  const chartSize = Math.min(160, screenWidth * 0.35);
+  const radius = chartSize / 2;
+  const centerX = radius;
+  const centerY = radius;
+
+  // Calculate pie slices
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  let currentAngle = 0;
+  
+  const slices = data.map((item, index) => {
+    const sliceAngle = (item.value / total) * 2 * Math.PI;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + sliceAngle;
+    currentAngle = endAngle;
+
+    let pathData;
+    
+    // Handle single slice (full circle) case
+    if (data.length === 1) {
+      pathData = [
+        `M ${centerX} ${centerY}`,
+        `m -${radius} 0`,
+        `a ${radius} ${radius} 0 1 1 ${radius * 2} 0`,
+        `a ${radius} ${radius} 0 1 1 -${radius * 2} 0`,
+        'Z'
+      ].join(' ');
+    } else {
+      // Create pie slice path for multiple slices
+      const x1 = centerX + radius * Math.cos(startAngle);
+      const y1 = centerY + radius * Math.sin(startAngle);
+      const x2 = centerX + radius * Math.cos(endAngle);
+      const y2 = centerY + radius * Math.sin(endAngle);
+
+      const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
+
+      pathData = [
+        `M ${centerX} ${centerY}`,
+        `L ${x1} ${y1}`,
+        `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+        'Z'
+      ].join(' ');
+    }
+
+    return {
+      pathData,
+      color: item.color,
+      percentage: item.percentage,
+      label: item.label,
+    };
+  });
 
   return (
     <View style={[styles.container, { width: '100%', height: size, backgroundColor: colors.background }]}>
       <View style={styles.chartLayout}>
-        <ChartKitPieChart
-          data={chartData}
-          width={chartWidth}
-          height={size * 0.8}
-          chartConfig={{
-            backgroundColor: colors.background,
-            backgroundGradientFrom: colors.background,
-            backgroundGradientTo: colors.background,
-            color: (opacity = 1) => colors.text,
-          }}
-          accessor="population"
-          backgroundColor={colors.background}
-          paddingLeft="0"
-          absolute={false}
-          hasLegend={false}
-        />
+        <View style={styles.chartWrapper}>
+          <Svg width={chartSize} height={chartSize}>
+            <Defs>
+              {slices.map((slice, index) => (
+                <LinearGradient key={index} id={`gradient-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor={slice.color} stopOpacity="1" />
+                  <Stop offset="100%" stopColor={slice.color} stopOpacity="0.7" />
+                </LinearGradient>
+              ))}
+            </Defs>
+            <G>
+              {slices.map((slice, index) => (
+                <Path
+                  key={index}
+                  d={slice.pathData}
+                  fill={slice.color}
+                  stroke={colors.background}
+                  strokeWidth="2"
+                />
+              ))}
+            </G>
+          </Svg>
+        </View>
         
-        {/* Custom legend positioned to the side */}
-        <View style={[styles.legendContainer, { width: legendWidth }]}>
+        {/* Custom legend */}
+        <View style={styles.legendContainer}>
           {data.map((item, index) => (
             <View key={index} style={styles.legendItem}>
               <View style={[styles.legendColor, { backgroundColor: item.color }]} />
-              <Text style={[styles.legendText, { color: colors.text }]} numberOfLines={2}>
-                {item.label}
-              </Text>
+              <View style={styles.legendTextContainer}>
+                <Text style={[styles.legendText, { color: colors.text }]} numberOfLines={1}>
+                  {item.label}
+                </Text>
+                <Text style={[styles.legendPercentage, { color: colors.text }]}>
+                  {item.percentage.toFixed(1)}%
+                </Text>
+              </View>
             </View>
           ))}
         </View>
@@ -86,28 +132,51 @@ const styles = StyleSheet.create({
   chartLayout: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     width: '100%',
-    paddingHorizontal: 40,
+    paddingHorizontal: 20,
+  },
+  chartWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   legendContainer: {
+    flex: 1,
+    marginLeft: 16,
     justifyContent: 'center',
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  legendTextContainer: {
+    flex: 1,
   },
   legendText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  legendPercentage: {
     fontSize: 10,
-    flex: 1,
-    flexShrink: 1,
+    opacity: 0.7,
   },
   emptyText: {
     fontSize: 16,

@@ -6,6 +6,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -25,14 +26,68 @@ export default function ReportsScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
+  // Load saved configuration on mount
   useFocusEffect(
     React.useCallback(() => {
       loadData();
-    }, [loadData])
+      loadSavedConfiguration();
+    }, [])
   );
 
+  // Load saved configuration from AsyncStorage
+  const loadSavedConfiguration = async () => {
+    try {
+      const savedPeriod = await AsyncStorage.getItem('reports_selected_period');
+      const savedReportType = await AsyncStorage.getItem('reports_selected_type');
+      const savedCustomStart = await AsyncStorage.getItem('reports_custom_start_date');
+      const savedCustomEnd = await AsyncStorage.getItem('reports_custom_end_date');
+
+      if (savedPeriod) {
+        setSelectedPeriod(savedPeriod as ReportPeriod);
+      }
+      if (savedReportType) {
+        setSelectedReportType(savedReportType as ReportType);
+      }
+      if (savedCustomStart) {
+        setCustomStartDate(new Date(savedCustomStart));
+      }
+      if (savedCustomEnd) {
+        setCustomEndDate(new Date(savedCustomEnd));
+      }
+    } catch (error) {
+      console.log('Error loading saved configuration:', error);
+    }
+  };
+
+  // Save configuration to AsyncStorage
+  const saveConfiguration = async (period: ReportPeriod, reportType: ReportType) => {
+    try {
+      await AsyncStorage.setItem('reports_selected_period', period);
+      await AsyncStorage.setItem('reports_selected_type', reportType);
+      await AsyncStorage.setItem('reports_custom_start_date', customStartDate.toISOString());
+      await AsyncStorage.setItem('reports_custom_end_date', customEndDate.toISOString());
+    } catch (error) {
+      console.log('Error saving configuration:', error);
+    }
+  };
+
+  // Update period and save configuration
+  const handlePeriodChange = (period: ReportPeriod) => {
+    setSelectedPeriod(period);
+    if (period === 'custom') {
+      setShowCustomModal(true);
+    }
+    saveConfiguration(period, selectedReportType);
+  };
+
+  // Update report type and save configuration
+  const handleReportTypeChange = (reportType: ReportType) => {
+    setSelectedReportType(reportType);
+    saveConfiguration(selectedPeriod, reportType);
+  };
+
   // Calculate date range based on selected period
-  const dateRange = useMemo(() => {
+  const getDateRange = () => {
     const today = new Date();
     let startDate: Date;
     let endDate: Date;
@@ -77,17 +132,10 @@ export default function ReportsScreen() {
         break;
       
       case 'custom':
-        if (customStartDate && customEndDate) {
-          startDate = new Date(customStartDate);
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date(customEndDate);
-          endDate.setHours(23, 59, 59, 999);
-        } else {
-          startDate = new Date(today);
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date(today);
-          endDate.setHours(23, 59, 59, 999);
-        }
+        startDate = new Date(customStartDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(customEndDate);
+        endDate.setHours(23, 59, 59, 999);
         break;
       
       default:
@@ -98,26 +146,29 @@ export default function ReportsScreen() {
     }
 
     return { startDate, endDate };
-  }, [selectedPeriod, customStartDate, customEndDate]);
+  };
+
+  const dateRange = getDateRange();
 
   // Filter time entries for selected period
   const filteredEntries = useMemo(() => {
+    const { startDate, endDate } = dateRange;
     return timeEntries.filter(entry => {
       const entryStart = new Date(entry.startTime);
       const entryEnd = entry.endTime ? new Date(entry.endTime) : null;
 
       // Entry starts within the period
-      const startsInPeriod = entryStart >= dateRange.startDate && entryStart <= dateRange.endDate;
+      const startsInPeriod = entryStart >= startDate && entryStart <= endDate;
       // Entry ends within the period
-      const endsInPeriod = entryEnd && entryEnd >= dateRange.startDate && entryEnd <= dateRange.endDate;
+      const endsInPeriod = entryEnd && entryEnd >= startDate && entryEnd <= endDate;
       // Entry spans the whole period (starts before and ends after)
-      const spansPeriod = entryEnd && entryStart < dateRange.startDate && entryEnd > dateRange.endDate;
+      const spansPeriod = entryEnd && entryStart < startDate && entryEnd > endDate;
       // Entry is running or paused and started within the period (no end time yet)
       const isActiveInPeriod = (entry.isRunning || entry.isPaused) && startsInPeriod;
 
       return startsInPeriod || endsInPeriod || spansPeriod || isActiveInPeriod;
     });
-  }, [timeEntries, dateRange]);
+  }, [timeEntries, selectedPeriod, customStartDate, customEndDate]);
 
   // Calculate report data
   const reportData = useMemo(() => {
@@ -137,6 +188,7 @@ export default function ReportsScreen() {
             taskName: task.name,
             projectName: project?.name || 'Unknown Project',
             projectColor: project?.color || '#808080',
+            taskColor: task.color,
             seconds: 0,
           };
         }
@@ -211,60 +263,122 @@ export default function ReportsScreen() {
       return reportData.byTask.map(task => ({
         label: task.taskName,
         value: task.seconds,
-        color: getTaskColor(task.taskName),
+        color: task.taskColor || task.projectColor,
         percentage: task.percentage,
       }));
     }
     return [];
   }, [selectedReportType, reportData, getTaskColor]);
 
-  // Prepare data for bar chart (by day)
+  // Prepare data for bar chart (by day, all days in period)
   const barChartData = useMemo(() => {
     if (selectedReportType === 'by-day') {
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const dayData = days.map((day, index) => {
-        // Calculate total hours for each day in the selected period
-        const dayStart = new Date(dateRange.startDate);
-        dayStart.setDate(dateRange.startDate.getDate() + index);
-        dayStart.setHours(0, 0, 0, 0);
-        
-        const dayEnd = new Date(dayStart);
-        dayEnd.setHours(23, 59, 59, 999);
-        
+      const days: { label: string; date: Date }[] = [];
+      let current = new Date(dateRange.startDate);
+      current.setHours(0, 0, 0, 0);
+      const end = new Date(dateRange.endDate);
+      end.setHours(0, 0, 0, 0);
+      while (current <= end) {
+        days.push({
+          label: current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          date: new Date(current),
+        });
+        current.setDate(current.getDate() + 1);
+      }
+      const maxValue = (() => {
+        let max = 0;
+        days.forEach(({ date }) => {
+          const dayEntries = filteredEntries.filter(entry => {
+            const entryStart = new Date(entry.startTime);
+            const entryEnd = entry.endTime ? new Date(entry.endTime) : new Date();
+            return (
+              entryStart <= new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999) &&
+              entryEnd >= new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+            );
+          });
+          const totalHours = dayEntries.reduce((total, entry) => total + (entry.duration || 0), 0) / 3600;
+          if (totalHours > max) max = totalHours;
+        });
+        return max;
+      })();
+      return days.map(({ label, date }) => {
         const dayEntries = filteredEntries.filter(entry => {
           const entryStart = new Date(entry.startTime);
           const entryEnd = entry.endTime ? new Date(entry.endTime) : new Date();
-          return entryStart <= dayEnd && entryEnd >= dayStart;
+          return (
+            entryStart <= new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999) &&
+            entryEnd >= new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+          );
         });
+        const totalHours = dayEntries.reduce((total, entry) => total + (entry.duration || 0), 0) / 3600;
         
-        const totalHours = dayEntries.reduce((total, entry) => {
-          return total + (entry.duration || 0);
-        }, 0) / 3600;
-        
+        // Group entries by task for this day
+        const taskGroups: { [taskId: string]: { task: any; project: any; seconds: number; hours: number } } = {};
+        dayEntries.forEach(entry => {
+          const task = getTaskById(entry.taskId);
+          const project = task ? getProjectById(task.projectId) : null;
+          
+          if (task && project) {
+            if (!taskGroups[task.id]) {
+              taskGroups[task.id] = {
+                task,
+                project,
+                seconds: 0,
+                hours: 0,
+              };
+            }
+            taskGroups[task.id].seconds += entry.duration || 0;
+            taskGroups[task.id].hours = taskGroups[task.id].seconds / 3600;
+          }
+        });
+
+        // Convert to segments array
+        const segments = Object.values(taskGroups).map(({ task, project, hours }) => ({
+          taskId: task.id,
+          taskName: task.name,
+          projectName: project.name,
+          projectColor: project.color,
+          taskColor: task.color,
+          hours,
+          percentage: totalHours > 0 ? (hours / totalHours) * 100 : 0,
+        }));
+
         return {
-          label: day,
+          label,
           value: totalHours,
           color: totalHours > 0 ? '#4CAF50' : '#E0E0E0',
-          maxValue: Math.max(...days.map((_, i) => {
-            const dStart = new Date(dateRange.startDate);
-            dStart.setDate(dateRange.startDate.getDate() + i);
-            dStart.setHours(0, 0, 0, 0);
-            const dEnd = new Date(dStart);
-            dEnd.setHours(23, 59, 59, 999);
-            const dEntries = filteredEntries.filter(entry => {
-              const entryStart = new Date(entry.startTime);
-              const entryEnd = entry.endTime ? new Date(entry.endTime) : new Date();
-              return entryStart <= dEnd && entryEnd >= dStart;
-            });
-            return dEntries.reduce((total, entry) => total + (entry.duration || 0), 0) / 3600;
-          })),
+          maxValue,
+          segments,
         };
       });
-      
-      return dayData;
     }
     return [];
-  }, [selectedReportType, filteredEntries, dateRange]);
+  }, [selectedReportType, filteredEntries, dateRange, getTaskById, getProjectById]);
+
+  // Prepare task data for bar chart legend
+  const taskLegendData = useMemo(() => {
+    if (selectedReportType === 'by-day') {
+      // Get unique tasks from bar chart segments
+      const uniqueTasks = new Map();
+      
+      barChartData.forEach(dayData => {
+        dayData.segments.forEach(segment => {
+          const key = `${segment.taskId}-${segment.taskName}`;
+          if (!uniqueTasks.has(key)) {
+            uniqueTasks.set(key, {
+              taskName: segment.taskName,
+              projectName: segment.projectName,
+              projectColor: segment.projectColor,
+              taskColor: segment.taskColor,
+            });
+          }
+        });
+      });
+      
+      return Array.from(uniqueTasks.values());
+    }
+    return [];
+  }, [selectedReportType, barChartData]);
 
   // Format date range for display
   const formatDateRange = () => {
@@ -289,8 +403,9 @@ export default function ReportsScreen() {
 
   // Handle custom date selection
   const handleCustomDateSubmit = () => {
-    if (customStartDate && customEndDate) {
+    if (customStartDate && customEndDate && customEndDate >= customStartDate) {
       setShowCustomModal(false);
+      saveConfiguration(selectedPeriod, selectedReportType);
     }
   };
 
@@ -316,12 +431,7 @@ export default function ReportsScreen() {
                     shadowColor: Colors[colorScheme ?? 'light'].text 
                   }],
                 ]}
-                onPress={() => {
-                  setSelectedPeriod(period.key as ReportPeriod);
-                  if (period.key === 'custom') {
-                    setShowCustomModal(true);
-                  }
-                }}
+                onPress={() => handlePeriodChange(period.key as ReportPeriod)}
               >
                 <ThemedText type="secondary" style={[
                   styles.periodButtonText,
@@ -379,7 +489,7 @@ export default function ReportsScreen() {
                     shadowColor: Colors[colorScheme ?? 'light'].text 
                   }],
                 ]}
-                onPress={() => setSelectedReportType(reportType.key as ReportType)}
+                onPress={() => handleReportTypeChange(reportType.key as ReportType)}
               >
                 <ThemedText type="secondary" style={[
                   styles.periodButtonText,
@@ -398,7 +508,6 @@ export default function ReportsScreen() {
         {/* Report Content */}
         {selectedReportType === 'by-project' && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>By Project</ThemedText>
             {/* Pie Chart */}
             <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
               <PieChart data={pieChartData} size={200} />
@@ -412,19 +521,19 @@ export default function ReportsScreen() {
                     { backgroundColor: project.projectColor }
                   ]} />
                   <View style={styles.itemDetails}>
-                    <ThemedText type="secondary" style={styles.itemName}>{project.projectName}</ThemedText>
-                    <ThemedText type="secondary" style={styles.itemPercentage}>
+                    <ThemedText style={styles.itemName}>{project.projectName}</ThemedText>
+                    <ThemedText style={styles.itemPercentage}>
                       {project.percentage.toFixed(1)}%
                     </ThemedText>
                   </View>
                 </View>
-                <ThemedText type="secondary" style={styles.itemDuration}>
+                <ThemedText style={styles.itemDuration}>
                   {formatDuration(project.seconds)}
                 </ThemedText>
               </View>
               
               {/* Progress bar */}
-              <View style={styles.progressBar}>
+              <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
                 <View 
                   style={[
                     styles.progressFill,
@@ -443,7 +552,6 @@ export default function ReportsScreen() {
 
         {selectedReportType === 'by-task' && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>By Task</ThemedText>
             {/* Pie Chart */}
             <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
               <PieChart data={pieChartData} size={200} />
@@ -454,29 +562,29 @@ export default function ReportsScreen() {
                   <View style={styles.itemInfo}>
                     <View style={styles.splitCircleContainer}>
                       <View style={[styles.splitCircleHalf, { backgroundColor: task.projectColor }]} />
-                      <View style={[styles.splitCircleHalf, { backgroundColor: getTaskColor(task.taskName) }]} />
+                      <View style={[styles.splitCircleHalf, { backgroundColor: task.taskColor || task.projectColor }]} />
                     </View>
                     <View style={styles.itemDetails}>
-                      <ThemedText type="secondary" style={styles.itemName}>{task.taskName}</ThemedText>
-                      <ThemedText type="secondary" style={styles.itemSubtext}>{task.projectName}</ThemedText>
-                      <ThemedText type="secondary" style={styles.itemPercentage}>
+                      <ThemedText style={styles.itemName}>{task.taskName}</ThemedText>
+                      <ThemedText style={styles.itemSubtext}>{task.projectName}</ThemedText>
+                      <ThemedText style={styles.itemPercentage}>
                         {task.percentage.toFixed(1)}%
                       </ThemedText>
                     </View>
                   </View>
-                  <ThemedText type="secondary" style={styles.itemDuration}>
+                  <ThemedText style={styles.itemDuration}>
                     {formatDuration(task.seconds)}
                   </ThemedText>
                 </View>
                 
                 {/* Progress bar */}
-                <View style={styles.progressBar}>
+                <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
                   <View 
                     style={[
                       styles.progressFill,
                       { 
                         width: `${task.percentage}%`,
-                        backgroundColor: task.projectColor,
+                        backgroundColor: task.taskColor || task.projectColor,
                       }
                     ]} 
                   />
@@ -486,22 +594,20 @@ export default function ReportsScreen() {
           </View>
         )}
 
-        {selectedReportType === 'by-day' && (
+        {selectedReportType === 'by-day' && barChartData.some(day => day.value > 0) && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>By Day</ThemedText>
             {/* Bar Chart */}
             <View style={[styles.chartContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }]}>
-              <BarChart data={barChartData} height={200} />
+              <BarChart data={barChartData} taskLegendData={taskLegendData} height={200} />
             </View>
           </View>
         )}
 
         {filteredEntries.length === 0 && (
           <View style={styles.emptyState}>
-            <IconSymbol name="insert-chart" size={48} color={Colors[colorScheme ?? 'light'].text} />
-            <ThemedText style={styles.emptyTitle}>No Data</ThemedText>
+            <IconSymbol name="insert-chart" size={64} color={Colors[colorScheme ?? 'light'].text} />
             <ThemedText style={styles.emptyText}>
-              No time entries found for the selected period.
+              No time entries found for the selected time period
             </ThemedText>
           </View>
         )}
@@ -573,11 +679,12 @@ export default function ReportsScreen() {
           value={customStartDate}
           mode="date"
           display="default"
+          maximumDate={new Date()}
           onChange={(event, selectedDate) => {
-            setShowStartPicker(false);
             if (selectedDate) {
               setCustomStartDate(selectedDate);
             }
+            setShowStartPicker(false);
           }}
         />
       )}
@@ -587,11 +694,13 @@ export default function ReportsScreen() {
           value={customEndDate}
           mode="date"
           display="default"
+          minimumDate={customStartDate}
+          maximumDate={new Date()}
           onChange={(event, selectedDate) => {
-            setShowEndPicker(false);
             if (selectedDate) {
               setCustomEndDate(selectedDate);
             }
+            setShowEndPicker(false);
           }}
         />
       )}
@@ -609,7 +718,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   periodSelector: {
-    marginBottom: 12,
+    marginBottom: 4, // reduced for minimal gap
   },
   periodTitle: {
     fontSize: 18,
@@ -682,9 +791,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    marginBottom: 10,
+    marginBottom: 2, // was 6, now even tighter
   },
   itemCard: {
     paddingVertical: 8,
@@ -750,6 +859,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     opacity: 0.7,
+    maxWidth: 280,
+    lineHeight: 20,
   },
   modalContainer: {
     flex: 1,
@@ -829,9 +940,9 @@ const styles = StyleSheet.create({
   chartContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 4, // was 10, now even tighter
     borderRadius: 8,
-    marginBottom: 20,
+    marginBottom: 8, // was 12, now even tighter
   },
   chartPlaceholder: {
     fontSize: 16,
