@@ -8,7 +8,7 @@ import { useTimeTracking } from '@/hooks/useTimeTracking';
 import { TimeEntry } from '@/types/timeTracking';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Animated, Dimensions, Easing, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 // Remove all react-native-svg and AnimatedRect imports and code
 
@@ -251,7 +251,8 @@ export default function TimesheetScreen() {
     setEditingEntry(entry);
     setEditTaskId(entry.taskId);
     setEditStartDate(new Date(entry.startTime));
-    setEditEndDate(entry.endTime ? new Date(entry.endTime) : new Date());
+    // For end date, if no end time exists, use start time + 1 hour as default
+    setEditEndDate(entry.endTime ? new Date(entry.endTime) : new Date(entry.startTime.getTime() + 3600000));
     setShowEditModal(true);
   };
 
@@ -272,20 +273,20 @@ export default function TimesheetScreen() {
     setEditingEntry(null);
   };
 
-  // Handle date picker changes
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
-    setShowStartPicker(false);
+  // Memoized onChange handlers for DateTimePicker
+  const handleStartDateChange = useCallback((event: any, selectedDate?: Date) => {
     if (selectedDate) {
       setEditStartDate(selectedDate);
     }
-  };
+    setShowStartPicker(false);
+  }, []);
 
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    setShowEndPicker(false);
+  const handleEndDateChange = useCallback((event: any, selectedDate?: Date) => {
     if (selectedDate) {
       setEditEndDate(selectedDate);
     }
-  };
+    setShowEndPicker(false);
+  }, []);
 
   // Remove all react-native-svg and AnimatedRect imports and code
 
@@ -716,7 +717,7 @@ export default function TimesheetScreen() {
       {showStartPicker && (
         <DateTimePicker
           value={editStartDate}
-          mode="datetime"
+          mode="date"
           display="default"
           onChange={handleStartDateChange}
         />
@@ -725,7 +726,7 @@ export default function TimesheetScreen() {
       {showEndPicker && (
         <DateTimePicker
           value={editEndDate}
-          mode="datetime"
+          mode="date"
           display="default"
           onChange={handleEndDateChange}
         />

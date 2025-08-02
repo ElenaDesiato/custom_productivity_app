@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
+import { TaskColorIndicator } from "@/components/TaskColorIndicator";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -23,16 +24,35 @@ export default function HomeScreen() {
   }, [loadData]);
 
   const today = new Date();
-  const todayEntries = timeEntries.filter(entry => {
-    const entryDate = new Date(entry.startTime);
-    return entryDate.toDateString() === today.toDateString();
-  });
+  const todayEntries = timeEntries
+    .filter(entry => {
+      const entryDate = new Date(entry.startTime);
+      return entryDate.toDateString() === today.toDateString();
+    })
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
   const totalTodayHours = todayEntries.reduce((total, entry) => {
     const duration = entry.endTime ? 
       (new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / (1000 * 60 * 60) : 0;
     return total + duration;
   }, 0);
+
+  // Helper function to get task and project info from taskId
+  const getTaskInfo = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return { displayName: 'Untitled Task', projectColor: '#999999', taskColor: undefined };
+    
+    const project = projects.find(p => p.id === task.projectId);
+    const projectName = project ? project.name : 'Unknown Project';
+    const projectColor = project?.color || '#999999';
+    const taskColor = task.color;
+    
+    return {
+      displayName: `${projectName}/${task.name}`,
+      projectColor,
+      taskColor
+    };
+  };
 
   const quickActions = [
     {
@@ -49,9 +69,9 @@ export default function HomeScreen() {
       color: "#2196F3",
     },
     {
-      title: "View Calendar",
+      title: "View Timesheet",
       icon: "calendar" as const,
-      route: "/calendar" as const,
+      route: "/time-tracking/timesheet" as const,
       color: "#FF9800",
     },
     {
@@ -166,21 +186,31 @@ export default function HomeScreen() {
             Recent Activity
           </ThemedText>
           <View style={styles.recentList}>
-            {todayEntries.slice(0, 3).map((entry, index) => (
-              <View key={index} style={styles.recentItem}>
-                <View style={styles.recentItemContent}>
-                  <ThemedText type="secondary" style={styles.recentItemTitle}>
-                    {entry.taskName || 'Untitled Task'}
-                  </ThemedText>
-                  <ThemedText type="secondary" style={styles.recentItemTime}>
-                    {formatTime(entry.startTime)}
+            {todayEntries.slice(0, 3).map((entry, index) => {
+              const taskInfo = getTaskInfo(entry.taskId);
+              return (
+                <View key={index} style={styles.recentItem}>
+                  <View style={styles.recentItemContent}>
+                    <View style={styles.taskInfoContainer}>
+                      <TaskColorIndicator 
+                        projectColor={taskInfo.projectColor} 
+                        taskColor={taskInfo.taskColor} 
+                        size={16} 
+                      />
+                      <ThemedText type="default" style={styles.recentItemTitle}>
+                        {taskInfo.displayName}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="default" style={styles.recentItemTime}>
+                      {formatTime(entry.startTime.toString())} - {entry.endTime ? formatTime(entry.endTime.toString()) : 'In Progress'}
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="secondary" style={styles.recentItemDuration}>
+                    {formatDuration(entry.startTime.toString(), entry.endTime?.toString())}
                   </ThemedText>
                 </View>
-                <ThemedText type="secondary" style={styles.recentItemDuration}>
-                  {formatDuration(entry.startTime, entry.endTime)}
-                </ThemedText>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </ThemedView>
       )}
@@ -194,7 +224,9 @@ function getGreeting(): string {
 }
 
 function formatTime(dateString: string): string {
-  return new Date(dateString).toLocaleTimeString([], { 
+  return new Date(dateString).toLocaleString([], { 
+    month: 'short',
+    day: 'numeric',
     hour: '2-digit', 
     minute: '2-digit' 
   });
@@ -284,12 +316,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     textAlign: "center",
-    marginBottom: 4,
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    textAlign: "center",
-    opacity: 0.7,
   },
   activeTimerBanner: {
     flexDirection: "row",
@@ -339,10 +365,15 @@ const styles = StyleSheet.create({
   recentItemContent: {
     flex: 1,
   },
+  taskInfoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
   recentItemTitle: {
     fontSize: 14,
     fontWeight: "500",
-    marginBottom: 2,
+    marginLeft: 8,
   },
   recentItemTime: {
     fontSize: 12,

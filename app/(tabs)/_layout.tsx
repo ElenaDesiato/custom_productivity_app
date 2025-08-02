@@ -1,5 +1,4 @@
 import { Tabs } from "expo-router";
-import React from "react";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
@@ -61,6 +60,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="calendar" color={Colors[colorScheme ?? "light"].textSecondary} />
           ), // Use a calendar icon
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="tune" color={Colors[colorScheme ?? "light"].textSecondary} />
+          ),
         }}
       />
     </Tabs>
