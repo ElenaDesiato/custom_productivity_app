@@ -534,6 +534,28 @@ export function useTimeTracking() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
+  // Reset all data (for clearing data)
+  const resetData = useCallback(async () => {
+    // Stop any running timer by clearing the interval and resetting state
+    const clearedTimerState = {
+      isRunning: false,
+      elapsedSeconds: 0,
+    };
+    
+    setProjects([]);
+    setTasks([]);
+    setTimeEntries([]);
+    setTimerState(clearedTimerState);
+    
+    // Save all cleared data to AsyncStorage to ensure it persists across screens
+    await Promise.all([
+      saveData(STORAGE_KEYS.PROJECTS, []),
+      saveData(STORAGE_KEYS.TASKS, []),
+      saveData(STORAGE_KEYS.TIME_ENTRIES, []),
+      saveData(STORAGE_KEYS.TIMER_STATE, clearedTimerState),
+    ]);
+  }, []);
+
   return {
     // State
     projects,
@@ -568,5 +590,6 @@ export function useTimeTracking() {
     getCurrentTask,
     formatTime,
     loadData,
+    resetData,
   };
 } 

@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
@@ -19,9 +19,11 @@ export default function HomeScreen() {
   const cardBackgroundColor = "#F5F5F5";
 
   // Load data when screen comes into focus
-  React.useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const today = new Date();
   const todayEntries = timeEntries
@@ -58,27 +60,38 @@ export default function HomeScreen() {
     {
       title: "Start Timer",
       icon: "timer" as const,
-      route: "/time-tracking/timer" as const,
+      route: "/time-tracking" as const,
       color: "#4CAF50",
-      disabled: timerState.isRunning,
     },
     {
-      title: "Add Task or Project",
+      title: "Add Task",
       icon: "add-task" as const,
       route: "/time-tracking/tasks" as const,
-      color: "#2196F3",
+      color: "#4CAF50",
     },
     {
       title: "View Timesheet",
-      icon: "calendar" as const,
+      icon: "schedule" as const,
       route: "/time-tracking/timesheet" as const,
+      color: "#4CAF50",
+    },
+    {
+      title: "View Calendar",
+      icon: "calendar" as const,
+      route: "/calendar" as const,
       color: "#FF9800",
     },
     {
       title: "View Todo List",
       icon: "checkmark.circle" as const,
       route: "/todo-list" as const,
-      color: "#9C27B0",
+      color: "#2196F3",
+    },
+    {
+      title: "",
+      icon: "" as const,
+      route: "" as const,
+      color: "transparent",
     },
   ];
 
@@ -145,17 +158,20 @@ export default function HomeScreen() {
               style={[
                 styles.actionCard,
                 { backgroundColor: cardBackgroundColor },
-                action.disabled && styles.actionCardDisabled
               ]}
-              onPress={() => !action.disabled && handleNavigation(action.route)}
-              disabled={action.disabled}
+              onPress={() => action.route && handleNavigation(action.route)}
+              disabled={!action.route}
             >
-              <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
-                <IconSymbol name={action.icon} size={20} color="white" />
-              </View>
-              <ThemedText type="secondary" style={styles.actionTitle}>
-                {action.title}
-              </ThemedText>
+              {action.icon && (
+                <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
+                  <IconSymbol name={action.icon} size={20} color="white" />
+                </View>
+              )}
+              {action.title && (
+                <ThemedText type="secondary" style={styles.actionTitle}>
+                  {action.title}
+                </ThemedText>
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -295,9 +311,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   actionCard: {
-    width: "48%",
-    borderRadius: 12,
-    padding: 16,
+    width: "31%",
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 12,
     alignItems: "center",
   },
@@ -305,15 +321,15 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   actionTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
   },

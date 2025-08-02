@@ -30,7 +30,7 @@ const ALL_STORAGE_KEYS = [
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const { exportData, importData } = useBackupRestore();
-  const { loadData, projects, tasks, timeEntries } = useTimeTracking();
+  const { loadData, resetData, projects, tasks, timeEntries } = useTimeTracking();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -121,7 +121,9 @@ export default function SettingsScreen() {
                 await Promise.all(keysToRemove.map(key => AsyncStorage.removeItem(key)));
               }
               
-              await loadData(); // Refresh the app data
+              // Immediately reset the app state to reflect the cleared data
+              await resetData();
+              
               Alert.alert(
                 'Data Cleared',
                 'All your data has been permanently deleted.',

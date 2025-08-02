@@ -54,6 +54,8 @@ export default function TimesheetScreen() {
   const [editEndDate, setEditEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [startPickerMode, setStartPickerMode] = useState<'date' | 'time'>('date');
+  const [endPickerMode, setEndPickerMode] = useState<'date' | 'time'>('date');
 
   useFocusEffect(
     React.useCallback(() => {
@@ -254,6 +256,9 @@ export default function TimesheetScreen() {
     // For end date, if no end time exists, use start time + 1 hour as default
     setEditEndDate(entry.endTime ? new Date(entry.endTime) : new Date(entry.startTime.getTime() + 3600000));
     setShowEditModal(true);
+    // Reset picker modes
+    setStartPickerMode('date');
+    setEndPickerMode('date');
   };
 
   // Handle edit submission
@@ -276,17 +281,43 @@ export default function TimesheetScreen() {
   // Memoized onChange handlers for DateTimePicker
   const handleStartDateChange = useCallback((event: any, selectedDate?: Date) => {
     if (selectedDate) {
-      setEditStartDate(selectedDate);
+      if (startPickerMode === 'date') {
+        // First step: date selected, now show time picker
+        setEditStartDate(selectedDate);
+        setStartPickerMode('time');
+      } else {
+        // Second step: time selected, complete the selection
+        const newDate = new Date(editStartDate);
+        newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+        setEditStartDate(newDate);
+        setShowStartPicker(false);
+        setStartPickerMode('date'); // Reset for next time
+      }
+    } else {
+      setShowStartPicker(false);
+      setStartPickerMode('date'); // Reset for next time
     }
-    setShowStartPicker(false);
-  }, []);
+  }, [startPickerMode, editStartDate]);
 
   const handleEndDateChange = useCallback((event: any, selectedDate?: Date) => {
     if (selectedDate) {
-      setEditEndDate(selectedDate);
+      if (endPickerMode === 'date') {
+        // First step: date selected, now show time picker
+        setEditEndDate(selectedDate);
+        setEndPickerMode('time');
+      } else {
+        // Second step: time selected, complete the selection
+        const newDate = new Date(editEndDate);
+        newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+        setEditEndDate(newDate);
+        setShowEndPicker(false);
+        setEndPickerMode('date'); // Reset for next time
+      }
+    } else {
+      setShowEndPicker(false);
+      setEndPickerMode('date'); // Reset for next time
     }
-    setShowEndPicker(false);
-  }, []);
+  }, [endPickerMode, editEndDate]);
 
   // Remove all react-native-svg and AnimatedRect imports and code
 
@@ -483,9 +514,9 @@ export default function TimesheetScreen() {
 
           {timeEntries.length === 0 && (
             <View style={styles.emptyState}>
-              <IconSymbol name="calendar" size={48} color={Colors[colorScheme ?? 'light'].text} />
-              <ThemedText style={styles.emptyTitle}>No Time Entries</ThemedText>
-              <ThemedText style={styles.emptyText}>
+              <IconSymbol name="calendar" size={48} color={Colors[colorScheme ?? 'light'].textSecondary} />
+              <ThemedText type="secondary" style={styles.emptyTitle}>No Time Entries</ThemedText>
+              <ThemedText type="secondary" style={styles.emptyText}>
                 Start tracking your time to see it here.
               </ThemedText>
             </View>
@@ -682,7 +713,10 @@ export default function TimesheetScreen() {
                 <ThemedText style={styles.timeLabel}>Start Time</ThemedText>
                 <TouchableOpacity
                   style={[styles.timeInput, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}
-                  onPress={() => setShowStartPicker(true)}
+                  onPress={() => {
+                    setShowStartPicker(true);
+                    setStartPickerMode('date');
+                  }}
                 >
                   <ThemedText style={[styles.timeInputValue, { color: Colors[colorScheme ?? 'light'].text }]}>
                     {editStartDate.toLocaleString()}
@@ -694,7 +728,10 @@ export default function TimesheetScreen() {
                 <ThemedText style={styles.timeLabel}>End Time</ThemedText>
                 <TouchableOpacity
                   style={[styles.timeInput, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}
-                  onPress={() => setShowEndPicker(true)}
+                  onPress={() => {
+                    setShowEndPicker(true);
+                    setEndPickerMode('date');
+                  }}
                 >
                   <ThemedText style={[styles.timeInputValue, { color: Colors[colorScheme ?? 'light'].text }]}>
                     {editEndDate.toLocaleString()}
@@ -717,7 +754,7 @@ export default function TimesheetScreen() {
       {showStartPicker && (
         <DateTimePicker
           value={editStartDate}
-          mode="date"
+          mode={startPickerMode}
           display="default"
           onChange={handleStartDateChange}
         />
@@ -726,7 +763,7 @@ export default function TimesheetScreen() {
       {showEndPicker && (
         <DateTimePicker
           value={editEndDate}
-          mode="date"
+          mode={endPickerMode}
           display="default"
           onChange={handleEndDateChange}
         />

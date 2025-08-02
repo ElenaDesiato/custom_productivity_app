@@ -5,6 +5,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useFocusEffect } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -25,7 +26,15 @@ export default function TasksScreen() {
     updateTask,
     deleteTask,
     getTasksByProject,
+    loadData,
   } = useTimeTracking();
+
+  // Load data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -267,7 +276,7 @@ export default function TasksScreen() {
                   style={[
                     styles.colorOption,
                     { backgroundColor: color },
-                    selectedColor === color && styles.selectedColor,
+                    selectedColor === color && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
                   ]}
                   onPress={() => setSelectedColor(color)}
                 />
@@ -331,12 +340,13 @@ export default function TasksScreen() {
                   <TouchableOpacity
                     style={[
                       styles.colorOption,
-                      { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#E0E0E0' },
-                      !selectedTaskColor && styles.selectedColor,
+                      { backgroundColor: 'transparent' },
+                      !selectedTaskColor && { borderWidth: 2, borderColor: '#E0E0E0' },
+                      !selectedTaskColor && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
                     ]}
                     onPress={() => setSelectedTaskColor(undefined)}
                   >
-                    <ThemedText style={styles.colorOptionText}>None</ThemedText>
+                    <ThemedText style={[styles.colorOptionText, { color: Colors[colorScheme ?? 'light'].text }]}>None</ThemedText>
                   </TouchableOpacity>
                   {PROJECT_COLORS.map(color => (
                     <TouchableOpacity
@@ -344,7 +354,7 @@ export default function TasksScreen() {
                       style={[
                         styles.colorOption,
                         { backgroundColor: color },
-                        selectedTaskColor === color && styles.selectedColor,
+                        selectedTaskColor === color && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
                       ]}
                       onPress={() => setSelectedTaskColor(color)}
                     />
@@ -389,7 +399,7 @@ export default function TasksScreen() {
                 <ThemedText style={styles.colorLabel}>Task color (optional):</ThemedText>
                 <View style={styles.colorPreview}>
                   <TaskColorIndicator
-                    projectColor={selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.color || PROJECT_COLORS[0] : PROJECT_COLORS[0]}
+                    projectColor={selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.color || PROJECT_COLORS[0] : '#000000'}
                     taskColor={selectedTaskColor}
                     size={24}
                   />
@@ -401,8 +411,9 @@ export default function TasksScreen() {
                   <TouchableOpacity
                     style={[
                       styles.colorOption,
-                      { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#E0E0E0' },
-                      !selectedTaskColor && styles.selectedColor,
+                      { backgroundColor: 'transparent' },
+                      !selectedTaskColor && { borderWidth: 2, borderColor: '#E0E0E0' },
+                      !selectedTaskColor && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
                     ]}
                     onPress={() => setSelectedTaskColor(undefined)}
                   >
@@ -414,7 +425,7 @@ export default function TasksScreen() {
                       style={[
                         styles.colorOption,
                         { backgroundColor: color },
-                        selectedTaskColor === color && styles.selectedColor,
+                        selectedTaskColor === color && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
                       ]}
                       onPress={() => setSelectedTaskColor(color)}
                     />
@@ -606,7 +617,6 @@ const styles = StyleSheet.create({
   },
   selectedColor: {
     borderWidth: 3,
-    borderColor: '#000',
   },
   colorPreview: {
     flexDirection: 'row',

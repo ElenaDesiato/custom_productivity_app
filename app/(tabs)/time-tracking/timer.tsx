@@ -6,7 +6,9 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useTimeTracking } from '@/hooks/useTimeTracking';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+
+import React, { useCallback, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function TimerScreen() {
@@ -23,6 +25,7 @@ export default function TimerScreen() {
     getCurrentTask,
     formatTime,
     addTimeEntry,
+    loadData,
   } = useTimeTracking();
 
   const [showManualModal, setShowManualModal] = useState(false);
@@ -37,11 +40,24 @@ export default function TimerScreen() {
   const [startNow, setStartNow] = useState(false);
   const currentTask = getCurrentTask();
 
+  // Load data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!showManualModal) {
+        loadData();
+      }
+    }, [loadData, showManualModal])
+  );
+
   const handleStartTimer = () => {
     if (tasks.length === 0) {
       Alert.alert('No Tasks', 'Please create a task first before starting the timer.');
       return;
     }
+    // Set default dates when opening modal
+    const now = new Date();
+    setStartDate(now);
+    setEndDate(new Date(now.getTime() + 3600000)); // 1 hour later
     setShowManualModal(true);
   };
 
@@ -72,21 +88,27 @@ export default function TimerScreen() {
       }
       
       // Reset form
-      setSelectedTaskId('');
-      setStartDate(new Date());
-      setEndDate(new Date());
-      setIsRunning(false);
-      setStartNow(false);
-      setShowManualModal(false);
-      
-      // const message = isRunning ? 'Running time entry started successfully!' : 'Time entry added successfully!';
-      // Alert.alert('Success', message);
+      handleCloseModal();
     } catch (error) {
       Alert.alert('Error', 'Failed to add time entry. Please try again.');
     }
   };
 
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+  const handleCloseModal = () => {
+    setShowManualModal(false);
+    setSelectedTaskId('');
+    // Reset dates to current time
+    setStartDate(new Date());
+    setEndDate(new Date());
+    setIsRunning(false);
+    setStartNow(false);
+    setShowStartPicker(false);
+    setShowEndPicker(false);
+    setStartPickerMode('date');
+    setEndPickerMode('date');
+  };
+
+  const handleStartDateChange = useCallback((event: any, selectedDate?: Date) => {
     if (selectedDate) {
       if (startPickerMode === 'date') {
         // First step: date selected, now show time picker
@@ -119,9 +141,9 @@ export default function TimerScreen() {
       setShowStartPicker(false);
       setStartPickerMode('date');
     }
-  };
+  }, [startPickerMode, startDate]);
 
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+  const handleEndDateChange = useCallback((event: any, selectedDate?: Date) => {
     if (selectedDate) {
       if (endPickerMode === 'date') {
         // First step: date selected, now show time picker
@@ -154,7 +176,7 @@ export default function TimerScreen() {
       setShowEndPicker(false);
       setEndPickerMode('date');
     }
-  };
+  }, [endPickerMode, endDate]);
 
   const handleStopTimer = () => {
     stopTimer();
@@ -248,7 +270,7 @@ export default function TimerScreen() {
           <View style={styles.modalHeader}>
             <ThemedText style={styles.modalTitle}>Start Timer</ThemedText>
             <TouchableOpacity
-              onPress={() => setShowManualModal(false)}
+              onPress={handleCloseModal}
               style={styles.closeButton}
             >
               <IconSymbol name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
