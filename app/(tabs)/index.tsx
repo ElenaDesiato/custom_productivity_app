@@ -82,9 +82,9 @@ export default function HomeScreen() {
       color: "#FF9800",
     },
     {
-      title: "View Todo List",
+      title: "Tasks & Goals",
       icon: "checkmark.circle" as const,
-      route: "/todo-list" as const,
+      route: "/tasks-goals" as const,
       color: "#2196F3",
     },
     {

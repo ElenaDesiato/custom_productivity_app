@@ -19,7 +19,6 @@ export default function TabLayout() {
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
             position: "absolute",
           },
           default: {},
@@ -45,12 +44,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="todo-list"
+        name="organization"
         options={{
-          title: "Todo List",
+          title: "Organization",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="checkmark.circle" color={Colors[colorScheme ?? "light"].textSecondary} />
-          ), // Use a checkmark.circle icon
+            <IconSymbol size={28} name="list" color={Colors[colorScheme ?? "light"].textSecondary} />
+          ), // Use a list icon
         }}
       />
       <Tabs.Screen
