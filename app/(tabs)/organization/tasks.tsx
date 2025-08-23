@@ -69,7 +69,19 @@ export default function TasksScreen() {
   };
   const handleDeleteList = (listId: string) => {
     setLists(lists.filter(l => l.id !== listId));
-    setTasks(tasks.filter(t => t.listId !== listId));
+    setTasks(tasks.map(t => {
+      if (t.listId === listId && t.archived) {
+        return {
+          ...t,
+          listId: `deleted-${listId}`,
+          deletedList: true,
+        };
+      } else if (t.listId === listId) {
+        // Only remove non-archived tasks
+        return null;
+      }
+      return t;
+    }).filter(Boolean) as Task[]);
   };
   const openEditListModal = (list: TaskList) => {
     setEditingList(list);
@@ -109,7 +121,11 @@ export default function TasksScreen() {
 
   // Complete a task
   const handleCompleteTask = (taskId: string) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, completed: true, archived: true } : t));
+    setTasks(tasks.map(t =>
+      t.id === taskId
+        ? { ...t, completed: true, archived: true, completedAt: new Date().toISOString() }
+        : t
+    ));
     setSelectedTask(null);
   };
 
@@ -119,8 +135,16 @@ export default function TasksScreen() {
     setSelectedTask(null);
   };
 
-  // Show archived tasks
-  const archivedTasks = tasks.filter(t => t.archived);
+  // Show archived tasks, sorted by completedAt descending
+  const archivedTasks = tasks
+    .filter(t => t.archived)
+    .slice()
+    .sort((a, b) => {
+      if (!a.completedAt && !b.completedAt) return 0;
+      if (!a.completedAt) return 1;
+      if (!b.completedAt) return -1;
+      return new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
+    });
 
   // Render a single task in a list
   const renderTaskItem = (task: Task) => (
@@ -143,6 +167,8 @@ export default function TasksScreen() {
 
   // Get color for a list
   function getListColor(listId: string) {
+    // If the list was deleted, return light gray
+    if (listId.startsWith('deleted-')) return '#ccc';
     return lists.find(l => l.id === listId)?.color || '#ccc';
   }
 
@@ -174,14 +200,19 @@ export default function TasksScreen() {
   );
 
   // Render archived tasks
-  const renderArchivedTask = (task: Task) => (
-    <View key={task.id} style={styles.archivedTaskRow}>
-      <View style={[styles.checkbox, { borderColor: getListColor(task.listId), backgroundColor: getListColor(task.listId) }]}
-        />
-      <ThemedText style={styles.taskName}>{task.name}</ThemedText>
-      <ThemedText style={[styles.archivedListName, { color: getListColor(task.listId) }]}>{lists.find(l => l.id === task.listId)?.name}</ThemedText>
-    </View>
-  );
+  const renderArchivedTask = (task: Task) => {
+    let listName = lists.find(l => l.id === task.listId)?.name;
+    if (!listName && task.deletedList) {
+      listName = 'Deleted List';
+    }
+    return (
+      <View key={task.id} style={styles.archivedTaskRow}>
+        <View style={[styles.checkbox, { borderColor: getListColor(task.listId), backgroundColor: getListColor(task.listId) }]} />
+        <ThemedText style={styles.taskName}>{task.name}</ThemedText>
+        <ThemedText style={[styles.archivedListName, { color: getListColor(task.listId) }]}>{listName}</ThemedText>
+      </View>
+    );
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -303,9 +334,19 @@ export default function TasksScreen() {
                 <ThemedText type="secondary" style={[styles.modalDetails, { fontStyle: 'italic', marginBottom: 12 }]}>No details</ThemedText>
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <TouchableOpacity onPress={() => handleCompleteTask(selectedTask.id)}>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (showArchived && selectedTask?.archived) {
+                      // Unarchive
+                      setTasks(tasks.map(t => t.id === selectedTask.id ? { ...t, completed: false, archived: false } : t));
+                      setSelectedTask(null);
+                    } else {
+                      handleCompleteTask(selectedTask.id);
+                    }
+                  }}
+                >
                   <View style={[styles.checkbox, { borderColor: getListColor(selectedTask.listId), backgroundColor: selectedTask.completed ? getListColor(selectedTask.listId) : 'transparent' }]}
-                    >
+                  >
                     {selectedTask.completed && <View style={styles.checkboxInner} />}
                   </View>
                 </TouchableOpacity>

@@ -11,4 +11,6 @@ export type Task = {
   listId: string;
   completed: boolean;
   archived: boolean;
+  deletedList?: boolean;
+  completedAt?: string;
 };
