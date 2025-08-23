@@ -6,8 +6,9 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useOrganization } from '@/hooks/useOrganization';
 import { Task, TaskList } from '@/types/organization';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import React from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 
 const COLORS = [
@@ -31,6 +32,10 @@ export default function TasksScreen() {
   const [newTaskName, setNewTaskName] = React.useState('');
   const [newTaskDetails, setNewTaskDetails] = React.useState('');
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
+  const [newTaskDueDate, setNewTaskDueDate] = React.useState<string>('');
+  const [editTaskDueDate, setEditTaskDueDate] = React.useState<string>('');
+  const [showNewDueDatePicker, setShowNewDueDatePicker] = React.useState(false);
+  const [showEditDueDatePicker, setShowEditDueDatePicker] = React.useState(false);
   const [showArchived, setShowArchived] = React.useState(false);
   // For editing lists
   const [editingList, setEditingList] = React.useState<TaskList | null>(null);
@@ -42,6 +47,7 @@ export default function TasksScreen() {
     setNewTaskName(task.name);
     setNewTaskDetails(task.details || '');
     setSelectedListId(task.listId);
+    setEditTaskDueDate(task.dueDate || '');
     setShowEditTaskModal(true);
   }
 
@@ -51,12 +57,13 @@ export default function TasksScreen() {
       Alert.alert('Missing Task Name', 'Please enter a name for your task.');
       return;
     }
-    setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId || t.listId } : t));
+    setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId || t.listId, dueDate: editTaskDueDate || undefined } : t));
     setEditingTask(null);
     setShowEditTaskModal(false);
     setNewTaskName('');
     setNewTaskDetails('');
     setSelectedListId(null);
+    setEditTaskDueDate('');
   }
 
   const handleEditList = () => {
@@ -112,10 +119,11 @@ export default function TasksScreen() {
     if (!selectedListId) return;
     setTasks([
       ...tasks,
-      { id: getRandomId(), name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId, completed: false, archived: false }
+      { id: getRandomId(), name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId, completed: false, archived: false, dueDate: newTaskDueDate || undefined }
     ]);
     setNewTaskName('');
     setNewTaskDetails('');
+    setNewTaskDueDate('');
     setShowTaskModal(false);
   };
 
@@ -161,6 +169,37 @@ export default function TasksScreen() {
       </TouchableOpacity>
       <TouchableOpacity style={{ flex: 1 }} onPress={() => setSelectedTask(task)}>
         <ThemedText type="secondary" style={[styles.taskName, { minWidth: 70, marginLeft: 10 }]}>{task.name}</ThemedText>
+        {task.dueDate ? (
+          <ThemedText
+            type="secondary"
+            style={{
+              fontSize: 12,
+              color: (() => {
+                const d = new Date(task.dueDate);
+                if (!isNaN(d.getTime())) {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  d.setHours(0, 0, 0, 0);
+                  if (d <= today) return '#E53935'; // red
+                }
+                return '#888';
+              })(),
+              marginLeft: 10,
+            }}
+          >
+            {(() => {
+              const d = new Date(task.dueDate);
+              if (!isNaN(d.getTime())) {
+                const parts = d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).split(', ');
+                if (parts.length === 3) {
+                  return `Due: ${parts[0]} ${parts[1]}, ${parts[2]}`;
+                }
+                return `Due: ${d.toLocaleDateString()}`;
+              }
+              return `Due: ${task.dueDate}`;
+            })()}
+          </ThemedText>
+        ) : null}
       </TouchableOpacity>
     </View>
   );
@@ -180,7 +219,7 @@ export default function TasksScreen() {
           <ThemedText style={styles.listTitle}>{list.name}</ThemedText>
         </View>
         <View style={styles.listHeaderActions}>
-          <TouchableOpacity onPress={() => { setSelectedListId(list.id); setShowTaskModal(true); }} style={styles.iconBtn}>
+          <TouchableOpacity onPress={() => { setSelectedListId(list.id); setNewTaskName(''); setNewTaskDetails(''); setNewTaskDueDate(''); setEditTaskDueDate(''); setShowTaskModal(true); }} style={styles.iconBtn}>
             <IconSymbol name="add" size={20} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => openEditListModal(list)} style={styles.iconBtn}>
@@ -333,6 +372,27 @@ export default function TasksScreen() {
               ) : (
                 <ThemedText type="secondary" style={[styles.modalDetails, { fontStyle: 'italic', marginBottom: 12 }]}>No details</ThemedText>
               )}
+              <ThemedText type="secondary" style={{ fontSize: 14, color: '#888', marginBottom: 12 }}>
+                {(() => {
+                  if (!selectedTask.dueDate) return 'No due date';
+                  const d = new Date(selectedTask.dueDate);
+                  let color = '#888';
+                  let text = `Due: ${selectedTask.dueDate}`;
+                  if (!isNaN(d.getTime())) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    d.setHours(0, 0, 0, 0);
+                    if (d <= today) color = '#E53935';
+                    const parts = d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).split(', ');
+                    if (parts.length === 3) {
+                      text = `Due: ${parts[0]} ${parts[1]}, ${parts[2]}`;
+                    } else {
+                      text = `Due: ${d.toLocaleDateString()}`;
+                    }
+                  }
+                  return <ThemedText type="secondary" style={{ fontSize: 14, color, marginBottom: 12 }}>{text}</ThemedText>;
+                })()}
+              </ThemedText>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                 <TouchableOpacity
                   onPress={() => {
@@ -363,7 +423,7 @@ export default function TasksScreen() {
           <View style={[styles.modalCard, { backgroundColor: themeBg }] }>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <ThemedText style={styles.modalTitle}>New Task</ThemedText>
-              <TouchableOpacity onPress={() => setShowTaskModal(false)} style={styles.closeButton}>
+              <TouchableOpacity onPress={() => { setShowTaskModal(false); setNewTaskDueDate(''); setEditTaskDueDate(''); }} style={styles.closeButton}>
                 <IconSymbol name="close" size={24} color={themeText} />
               </TouchableOpacity>
             </View>
@@ -382,6 +442,62 @@ export default function TasksScreen() {
               placeholderTextColor={colorScheme === 'dark' ? '#888' : '#888'}
               multiline
             />
+            <TouchableOpacity
+              onPress={() => setShowNewDueDatePicker(true)}
+              style={[
+                styles.input,
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 12,
+                  backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9',
+                  borderColor: '#ccc',
+                  minWidth: 0,
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              <ThemedText style={{ color: themeText, flex: 1, fontSize: 16 }} numberOfLines={1} ellipsizeMode="tail">
+                {newTaskDueDate
+                  ? (() => {
+                      const d = new Date(newTaskDueDate);
+                      if (!isNaN(d.getTime())) {
+                        const parts = d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).split(', ');
+                        if (parts.length === 3) {
+                          return `Due: ${parts[0]} ${parts[1]}, ${parts[2]}`;
+                        }
+                        return `Due: ${d.toLocaleDateString()}`;
+                      }
+                      return `Due: ${newTaskDueDate}`;
+                    })()
+                  : 'Set due date (optional)'}
+              </ThemedText>
+              <IconSymbol name="calendar" size={20} color={themeText} />
+            </TouchableOpacity>
+            {showNewDueDatePicker && (
+              <View style={{
+                backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9',
+                borderRadius: 8,
+                marginVertical: 8,
+                padding: Platform.OS === 'ios' ? 8 : 0,
+              }}>
+                <DateTimePicker
+                  value={newTaskDueDate && !isNaN(Date.parse(newTaskDueDate)) ? new Date(newTaskDueDate) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={(event, date) => {
+                    if (Platform.OS !== 'ios') setShowNewDueDatePicker(false);
+                    if (date) {
+                      const iso = date.toISOString().slice(0, 10);
+                      setNewTaskDueDate(iso);
+                    }
+                  }}
+                  themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
+                  style={{ backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9' }}
+                />
+              </View>
+            )}
             <TouchableOpacity style={styles.modalBtn} onPress={handleAddTask}>
               <ThemedText style={styles.modalBtnText}>Add Task</ThemedText>
             </TouchableOpacity>
@@ -395,7 +511,7 @@ export default function TasksScreen() {
           <View style={[styles.modalCard, { backgroundColor: themeBg }] }>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <ThemedText style={styles.modalTitle}>Edit Task</ThemedText>
-              <TouchableOpacity onPress={() => { setShowEditTaskModal(false); setEditingTask(null); }} style={styles.closeButton}>
+              <TouchableOpacity onPress={() => { setShowEditTaskModal(false); setEditingTask(null); setEditTaskDueDate(''); setNewTaskDueDate(''); }} style={styles.closeButton}>
                 <IconSymbol name="close" size={24} color={themeText} />
               </TouchableOpacity>
             </View>
@@ -414,6 +530,53 @@ export default function TasksScreen() {
               placeholderTextColor={colorScheme === 'dark' ? '#888' : '#888'}
               multiline
             />
+            <TouchableOpacity
+              onPress={() => setShowEditDueDatePicker(true)}
+              style={[
+                styles.input,
+                {
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 12,
+                  backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9',
+                  borderColor: '#ccc',
+                  minWidth: 0,
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              <ThemedText style={{ color: themeText, flex: 1, fontSize: 16 }} numberOfLines={1} ellipsizeMode="tail">
+                {editTaskDueDate
+                  ? (() => {
+                      const d = new Date(editTaskDueDate);
+                      if (!isNaN(d.getTime())) {
+                        const parts = d.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).split(', ');
+                        if (parts.length === 3) {
+                          return `Due: ${parts[0]} ${parts[1]}, ${parts[2]}`;
+                        }
+                        return `Due: ${d.toLocaleDateString()}`;
+                      }
+                      return `Due: ${editTaskDueDate}`;
+                    })()
+                  : 'Set due date (optional)'}
+              </ThemedText>
+              <IconSymbol name="calendar" size={20} color={themeText} />
+            </TouchableOpacity>
+            {showEditDueDatePicker && (
+              <DateTimePicker
+                value={editTaskDueDate && !isNaN(Date.parse(editTaskDueDate)) ? new Date(editTaskDueDate) : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                onChange={(event, date) => {
+                  if (Platform.OS !== 'ios') setShowEditDueDatePicker(false);
+                  if (date) {
+                    const iso = date.toISOString().slice(0, 10);
+                    setEditTaskDueDate(iso);
+                  }
+                }}
+              />
+            )}
             <TouchableOpacity style={styles.modalBtn} onPress={handleSaveEditTask}>
               <ThemedText style={styles.modalBtnText}>Save Changes</ThemedText>
             </TouchableOpacity>

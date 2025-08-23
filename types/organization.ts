@@ -13,4 +13,5 @@ export type Task = {
   archived: boolean;
   deletedList?: boolean;
   completedAt?: string;
+  dueDate?: string;
 };
