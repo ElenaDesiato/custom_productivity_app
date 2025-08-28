@@ -38,6 +38,34 @@ export default function TasksGoalsLayout() {
                 headerShown: true,
               }} 
             />
-    </Stack>
-  );
-}
+            <Stack.Screen 
+              name="manageGoals" 
+              options={{ 
+                title: 'Manage All Goals',
+                headerShown: true,
+              }} 
+            />
+            <Stack.Screen 
+              name="goalsSettings" 
+              options={{ 
+                title: 'Goals Settings',
+                headerShown: true,
+              }} 
+            />
+            <Stack.Screen 
+              name="manageAreas" 
+              options={{ 
+                title: 'Manage Self-Care Areas',
+                headerShown: true,
+              }} 
+            />
+            <Stack.Screen 
+              name="weeklyGoals" 
+              options={{ 
+                title: 'Weekly Goals',
+                headerShown: true,
+              }} 
+            />
+        </Stack>
+      );
+    }
