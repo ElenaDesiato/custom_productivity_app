@@ -25,6 +25,20 @@ function isDateInCurrentWeek(dateStr: string) {
 }
 
 export function useGoals() {
+  // Expose reloadGoals for manual reloads
+  const reloadGoals = useCallback(async () => {
+    setLoading(true);
+    const data = await AsyncStorage.getItem(GOALS_KEY);
+    if (data) {
+      const loadedGoals = JSON.parse(data).map((goal: any) => ({
+        ...goal,
+        completedDates: (goal.completedDates || []).filter(isDateInCurrentWeek),
+      }));
+      setGoals(loadedGoals);
+      await calculateStreak(loadedGoals);
+    }
+    setLoading(false);
+  }, []);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [streak, setStreak] = useState(0);
@@ -49,7 +63,7 @@ export function useGoals() {
     let streakCount = 0;
     let date = new Date();
     date.setHours(0,0,0,0);
-    // Go back one day at a time, check if daily goal was reached
+    // Always treat Monday as 0, Sunday as 6 for consistency
     while (true) {
       const dateStr = date.toISOString().slice(0, 10);
       const points = goalsList.reduce((sum, goal) =>
@@ -57,6 +71,7 @@ export function useGoals() {
       , 0);
       if (points >= dailyGoal) {
         streakCount++;
+        // Move to previous day, always using local time
         date.setDate(date.getDate() - 1);
       } else {
         break;
@@ -73,41 +88,26 @@ export function useGoals() {
     await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed));
   };
 
-  // Load goals from storage and listen for changes
+  // Load goals from storage on mount
   useEffect(() => {
     let isMounted = true;
-    const loadGoals = () => {
-      AsyncStorage.getItem(GOALS_KEY)
-        .then(async data => {
-          if (isMounted && data) {
-            // Prune completedDates to only current week
-            const loadedGoals = JSON.parse(data).map((goal: any) => ({
-              ...goal,
-              completedDates: (goal.completedDates || []).filter(isDateInCurrentWeek),
-            }));
-            setGoals(loadedGoals);
-            // Save pruned goals back to storage
-            AsyncStorage.setItem(GOALS_KEY, JSON.stringify(loadedGoals));
-            await calculateStreak(loadedGoals);
-          }
-        })
-        .finally(() => { if (isMounted) setLoading(false); });
-    };
-    loadGoals();
-    const listener = () => loadGoals();
-    // Listen for storage events (works for other tabs, and we call it manually below)
-    window?.addEventListener?.('storage', listener);
-    // Monkey-patch AsyncStorage.setItem to also trigger the listener (for same-tab updates)
-    const origSetItem = AsyncStorage.setItem;
-    AsyncStorage.setItem = async (...args) => {
-      const result = await origSetItem.apply(AsyncStorage, args);
-      listener();
-      return result;
-    };
+    AsyncStorage.getItem(GOALS_KEY)
+      .then(async data => {
+        if (isMounted && data) {
+          // Prune completedDates to only current week
+          const loadedGoals = JSON.parse(data).map((goal: any) => ({
+            ...goal,
+            completedDates: (goal.completedDates || []).filter(isDateInCurrentWeek),
+          }));
+          setGoals(loadedGoals);
+          // Save pruned goals back to storage
+          AsyncStorage.setItem(GOALS_KEY, JSON.stringify(loadedGoals));
+          await calculateStreak(loadedGoals);
+        }
+      })
+      .finally(() => { if (isMounted) setLoading(false); });
     return () => {
       isMounted = false;
-      window?.removeEventListener?.('storage', listener);
-      AsyncStorage.setItem = origSetItem;
     };
   }, []);
 
@@ -135,13 +135,24 @@ export function useGoals() {
       completedDates: (updated.completedDates || []).filter(isDateInCurrentWeek),
     };
     const newGoals = goals.map(g => g.id === updated.id ? pruned : g);
+    setGoals(newGoals); // Update UI immediately
+    await calculateStreak(newGoals); // Update streak immediately
     await saveGoals(newGoals);
-    await calculateStreak(newGoals);
+    // Optionally reload from storage for consistency
+    const data = await AsyncStorage.getItem(GOALS_KEY);
+    if (data) {
+      const loadedGoals = JSON.parse(data).map((goal: any) => ({
+        ...goal,
+        completedDates: (goal.completedDates || []).filter(isDateInCurrentWeek),
+      }));
+      setGoals(loadedGoals);
+      await calculateStreak(loadedGoals);
+    }
   }, [goals, saveGoals]);
 
   const deleteGoal = useCallback(async (id: string) => {
     await saveGoals(goals.filter(g => g.id !== id));
   }, [goals, saveGoals]);
 
-  return { goals, loading, addGoal, updateGoal, deleteGoal, streak };
+  return { goals, loading, addGoal, updateGoal, deleteGoal, streak, reloadGoals };
 }

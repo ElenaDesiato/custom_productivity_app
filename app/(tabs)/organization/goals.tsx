@@ -8,16 +8,83 @@ import { useSelfCareAreas } from '@/hooks/useSelfCareAreas';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Dimensions, FlatList, Platform, StyleSheet as RNStyleSheet, StyleSheet, TouchableOpacity, View } from 'react-native';
+import ConfettiView from 'react-native-confetti-view';
+// DebugPanel for development/testing
+type DebugPanelProps = {
+  onUncompleteToday: () => void;
+  onAdvanceDay: () => void;
+  debugDayOffset: number;
+};
+function DebugPanel({ onUncompleteToday, onAdvanceDay, debugDayOffset }: DebugPanelProps) {
+  const panelStyle = {
+    backgroundColor: '#ffe0b2',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ff9800',
+  };
+  return (
+    <View style={panelStyle}>
+      <ThemedText style={{ fontWeight: 'bold', color: '#e65100', marginBottom: 8 }}>DEBUG PANEL</ThemedText>
+      <TouchableOpacity onPress={onUncompleteToday} style={{ marginBottom: 8, backgroundColor: '#fff3e0', borderRadius: 6, padding: 8 }}>
+        <ThemedText style={{ color: '#e65100', fontWeight: 'bold' }}>Uncomplete A Goal</ThemedText>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onAdvanceDay} style={{ backgroundColor: '#fff3e0', borderRadius: 6, padding: 8 }}>
+        <ThemedText style={{ color: '#e65100', fontWeight: 'bold' }}>Advance Day (Current Offset: {debugDayOffset})</ThemedText>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 
 
+import { useFocusEffect } from '@react-navigation/native';
+
 function GoalsScreen() {
+  // (No fade overlay state)
+  const windowHeight = Dimensions.get('window').height;
+  const windowWidth = Dimensions.get('window').width;
+  const { goals, loading, addGoal, updateGoal, streak, reloadGoals } = useGoals();
+  // Debug state: day offset for faking current day
+  const [debugDayOffset, setDebugDayOffset] = useState(0);
+
+  // Helper to get the debug/fake 'today' date
+  function getDebugToday(offset = 0) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d;
+  }
+  // Helper to get ISO string for debug today
+  const debugTodayDate = getDebugToday(debugDayOffset);
+  const today = debugTodayDate.toISOString().slice(0, 10);
+  // Make Monday=0, Sunday=6 to match rest of app, with debug offset
+  const jsDay = debugTodayDate.getDay();
+  const todayIdx = (jsDay === 0 ? 6 : jsDay - 1);
+
+  // Handler to uncomplete all today's goals
+  const handleUncompleteToday = useCallback(async () => {
+    for (const goal of goals) {
+      if (goal.completedDates?.includes(today)) {
+        const updated = {
+          ...goal,
+          completedDates: goal.completedDates.filter(date => date !== today),
+        };
+        await updateGoal(updated);
+      }
+    }
+    reloadGoals && reloadGoals();
+  }, [goals, today, updateGoal, reloadGoals]);
+
+  // Handler to advance the debug day
+  const handleAdvanceDay = useCallback(() => {
+    setDebugDayOffset(offset => offset + 1);
+  }, []);
   // Toggle a single day in selectedDays
   function toggleDay(idx: number) {
     setSelectedDays((prev) =>
@@ -29,7 +96,12 @@ function GoalsScreen() {
   function toggleAllDays() {
     setSelectedDays(selectedDays.length === 7 ? [] : [0,1,2,3,4,5,6]);
   }
-  const { goals, loading, addGoal, updateGoal, streak } = useGoals();
+  // Reload goals when returning to this screen (after navigating back from settings)
+  useFocusEffect(
+    useCallback(() => {
+      reloadGoals && reloadGoals();
+    }, [reloadGoals])
+  );
   const { areas } = useSelfCareAreas();
   const { settings: userSettings, loading: settingsLoading } = useUserSettings();
   const colorScheme = useColorScheme() ?? 'light';
@@ -38,9 +110,8 @@ function GoalsScreen() {
   const [desc, setDesc] = useState('');
   const [areaId, setAreaId] = useState('');
   const [points, setPoints] = useState('5');
-  // Days of week: 0=Sun, 1=Mon, ..., 6=Sat
+  // Days of week: 0=Mon, 1=Tue, ..., 6=Sun
   const [selectedDays, setSelectedDays] = useState<number[]>([]); // Default: none selected
-  // Remove icon selection for goals, add color selection
   const [goalColor, setGoalColor] = useState('#FFFFFF');
   const [showAreaDropdown, setShowAreaDropdown] = useState(false);
 
@@ -73,12 +144,11 @@ function GoalsScreen() {
   // Use dailyGoal from user settings if available
   const dailyGoal = userSettings?.dailyGoal || 20;
 
-  // Calculate today's points
-  const today = new Date().toISOString().slice(0, 10);
   // Track animating goals by id
   const [animatingGoalIds, setAnimatingGoalIds] = useState<string[]>([]);
   const [confettiGoalId, setConfettiGoalId] = useState<string|null>(null);
   const [confettiKey, setConfettiKey] = useState(0);
+
   const dailyPoints = useMemo(() =>
     goals.reduce((sum, goal) =>
       goal.completedDates?.includes(today) ? sum + goal.points : sum
@@ -86,7 +156,6 @@ function GoalsScreen() {
 
   const router = useRouter();
   // --- FlatList filter and empty logic ---
-  const todayIdx = new Date().getDay(); // 0=Sun, 1=Mon, ...
   const filteredGoals = [...goals]
     .filter(goal =>
       (!goal.repetitionDays || goal.repetitionDays.length === 0 || goal.repetitionDays.includes(todayIdx)) &&
@@ -101,6 +170,14 @@ function GoalsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      {/* Debug panel only in dev mode */}
+      {__DEV__ && (
+        <DebugPanel
+          onUncompleteToday={handleUncompleteToday}
+          onAdvanceDay={handleAdvanceDay}
+          debugDayOffset={debugDayOffset}
+        />
+      )}
       {/* Streak Text */}
       <View style={{ marginTop: 8, marginBottom: 0, alignItems: 'center' }}>
         <ThemedText type="secondary" style={{
@@ -193,19 +270,24 @@ function GoalsScreen() {
         <IconSymbol name="settings" size={22} color="#888" />
       </TouchableOpacity>
 
-      {/* ...existing code... */}
       {/* Goals List */}
       {confettiGoalId && (
-        <ConfettiCannon
-          key={confettiKey}
-          count={180}
-          origin={{ x: 200, y: 0 }}
-          fadeOut
-          autoStart
-          explosionSpeed={700}
-          fallSpeed={3500}
-        />
+        <View style={[RNStyleSheet.absoluteFillObject, { zIndex: 9999, pointerEvents: 'none' }]} pointerEvents="none">
+          <ConfettiView
+            key={confettiKey}
+            confettiCount={50}
+            duration={500}
+            colors={[
+              "#FFD700", "#FF69B4", "#4FC3F7", "#81C784", "#FF8A65",
+              "#FF0000", "#00FF00", "#0000FF", "#FFA500", "#800080"
+            ]}
+            size={2.0}
+            autoStart
+            style={{ width: 0, height: 0 }}
+          />
+        </View>
       )}
+  {/* No fade overlay */}
       {loading ? (
         <ActivityIndicator size="large" color="#2196F3" style={{ marginTop: 32 }} />
       ) : (
@@ -253,6 +335,7 @@ function GoalsScreen() {
               await updateGoal({ ...item, completedDates: [...(item.completedDates || []), today] });
               setConfettiGoalId(item.id);
               setConfettiKey(k => k + 1);
+              // No fade overlay
               setTimeout(() => {
                 setConfettiGoalId(null);
                 setAnimatingGoalIds(ids => ids.filter(id => id !== item.id));
