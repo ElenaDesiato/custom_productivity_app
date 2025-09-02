@@ -1,4 +1,7 @@
-import { Project, Task, TimeEntry } from '@/types/timeTracking';
+import { Goal, UserSettings as GoalsUserSettings, SelfCareArea } from '@/types/goals';
+import { ListerState } from '@/types/lister';
+import { Task as OrgTask, TaskList } from '@/types/organization';
+import { Project, TimeEntry, Task as TimeTask } from '@/types/timeTracking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -10,29 +13,107 @@ const STORAGE_KEYS = {
   TASKS: 'timeTracking_tasks',
   TIME_ENTRIES: 'timeTracking_timeEntries',
   TIMER_STATE: 'timeTracking_timerState',
+  // Organization tab
+  ORG_TASKS: 'organization_tasks',
+  ORG_LISTS: 'organization_lists',
+  // Lister
+  LISTER: 'lister_state_v1',
+  // Goals
+  GOALS: 'goals',
+  GOALS_SETTINGS: 'goals_settings',
+  GOALS_AREAS: 'selfcare_areas',
 };
 
 export function useBackupRestore() {
+  // Delete all productivity data (time tracking, organization, lister, goals)
+  const deleteAllData = useCallback(async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.PROJECTS,
+        STORAGE_KEYS.TASKS,
+        STORAGE_KEYS.TIME_ENTRIES,
+        STORAGE_KEYS.TIMER_STATE,
+        STORAGE_KEYS.ORG_TASKS,
+        STORAGE_KEYS.ORG_LISTS,
+        STORAGE_KEYS.LISTER,
+        STORAGE_KEYS.GOALS,
+        STORAGE_KEYS.GOALS_SETTINGS,
+        STORAGE_KEYS.GOALS_AREAS,
+      ]);
+      // Restore default goals state (areas, settings)
+      const DEFAULT_AREAS = [
+        { id: 'movement', name: 'Movement', icon: 'directions-run', color: '#4CAF50' },
+        { id: 'self-kindness', name: 'Self-Kindness', icon: 'favorite', color: '#FFD600' },
+        { id: 'nutrition', name: 'Nutrition', icon: 'restaurant', color: '#FF8A65' },
+        { id: 'hygiene', name: 'Hygiene', icon: 'water-drop', color: '#2196F3' },
+        { id: 'productivity', name: 'Productivity', icon: 'work', color: '#9575CD' },
+        { id: 'human-connection', name: 'Human Connection', icon: 'people', color: '#F06292' },
+        { id: 'personal', name: 'Personal', icon: 'person', color: '#A1887F' },
+      ];
+      // Explicitly clear goals list
+      await AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify([]));
+      await AsyncStorage.setItem(STORAGE_KEYS.GOALS_AREAS, JSON.stringify(DEFAULT_AREAS));
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.GOALS_SETTINGS,
+        JSON.stringify({
+          dailyGoal: 20,
+          lastCompletionDate: null,
+          weeklyGoals: {},
+          streak: 0,
+          currentStreak: 0,
+          highestStreak: 0,
+        })
+      );
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }, []);
+
   const exportData = useCallback(async () => {
     try {
+
       // Get all data from AsyncStorage
-      const [projectsData, tasksData, timeEntriesData, timerStateData] = await Promise.all([
+      const [
+        projectsData, tasksData, timeEntriesData, timerStateData,
+        orgTasksData, orgListsData,
+        listerData,
+        goalsData, goalsSettingsData, goalsAreasData
+      ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.PROJECTS),
         AsyncStorage.getItem(STORAGE_KEYS.TASKS),
         AsyncStorage.getItem(STORAGE_KEYS.TIME_ENTRIES),
         AsyncStorage.getItem(STORAGE_KEYS.TIMER_STATE),
+        AsyncStorage.getItem(STORAGE_KEYS.ORG_TASKS),
+        AsyncStorage.getItem(STORAGE_KEYS.ORG_LISTS),
+        AsyncStorage.getItem(STORAGE_KEYS.LISTER),
+        AsyncStorage.getItem(STORAGE_KEYS.GOALS),
+        AsyncStorage.getItem(STORAGE_KEYS.GOALS_SETTINGS),
+        AsyncStorage.getItem(STORAGE_KEYS.GOALS_AREAS),
       ]);
 
       let projects: Project[] = [];
-      let tasks: Task[] = [];
+      let tasks: TimeTask[] = [];
       let timeEntries: TimeEntry[] = [];
       let timerState = null;
+      let orgTasks: OrgTask[] = [];
+      let orgLists: TaskList[] = [];
+      let lister: ListerState | null = null;
+      let goals: Goal[] = [];
+      let goalsSettings: GoalsUserSettings | null = null;
+      let goalsAreas: SelfCareArea[] = [];
 
       try {
         projects = projectsData ? JSON.parse(projectsData) : [];
         tasks = tasksData ? JSON.parse(tasksData) : [];
         timeEntries = timeEntriesData ? JSON.parse(timeEntriesData) : [];
         timerState = timerStateData ? JSON.parse(timerStateData) : null;
+        orgTasks = orgTasksData ? JSON.parse(orgTasksData) : [];
+        orgLists = orgListsData ? JSON.parse(orgListsData) : [];
+        lister = listerData ? JSON.parse(listerData) : null;
+        goals = goalsData ? JSON.parse(goalsData) : [];
+        goalsSettings = goalsSettingsData ? JSON.parse(goalsSettingsData) : null;
+        goalsAreas = goalsAreasData ? JSON.parse(goalsAreasData) : [];
       } catch (parseError) {
         console.error('Failed to parse stored data:', parseError);
         return { success: false, error: 'Failed to parse stored data' };
@@ -40,12 +121,22 @@ export function useBackupRestore() {
 
       // Create backup object
       const backupData = {
-        version: '1.0',
+        version: '2.0',
         exportedAt: new Date().toISOString(),
+        // Time tracking
         projects,
         tasks,
         timeEntries,
         timerState,
+        // Organization
+        orgTasks,
+        orgLists,
+        // Lister
+        lister,
+        // Goals
+        goals,
+        goalsSettings,
+        goalsAreas,
       };
 
       // Save to file
@@ -60,7 +151,7 @@ export function useBackupRestore() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
           mimeType: 'application/json',
-          dialogTitle: 'Backup Productivity Data',
+          dialogTitle: 'Backup Productivity Data (all tabs: time tracking, organization, lister, goals)',
         });
       }
 
@@ -95,74 +186,76 @@ export function useBackupRestore() {
         return { success: false, error: 'Invalid JSON file format' };
       }
 
-      // Validate backup structure
-      if (!backupData.projects || !backupData.tasks || !backupData.timeEntries) {
-        return { success: false, error: 'Invalid backup file format' };
+
+      // Validate backup structure (must have all new fields)
+      if (
+        !('projects' in backupData) ||
+        !('tasks' in backupData) ||
+        !('timeEntries' in backupData) ||
+        !('orgTasks' in backupData) ||
+        !('orgLists' in backupData) ||
+        !('lister' in backupData) ||
+        !('goals' in backupData) ||
+        !('goalsSettings' in backupData) ||
+        !('goalsAreas' in backupData)
+      ) {
+        return { success: false, error: 'Invalid backup file format (missing required fields)' };
       }
 
-      // Validate that required arrays are actually arrays
-      if (!Array.isArray(backupData.projects) || !Array.isArray(backupData.tasks) || !Array.isArray(backupData.timeEntries)) {
-        return { success: false, error: 'Invalid data structure in backup file' };
+
+      // Parse and convert date fields
+
+      const projects: Project[] = Array.isArray(backupData.projects)
+        ? backupData.projects.map((p: any) => ({
+            ...p,
+            createdAt: p.createdAt ? new Date(p.createdAt) : undefined,
+          }))
+        : [];
+
+      const tasks: TimeTask[] = Array.isArray(backupData.tasks)
+        ? backupData.tasks.map((t: any) => ({
+            ...t,
+            createdAt: t.createdAt ? new Date(t.createdAt) : undefined,
+          }))
+        : [];
+
+      const timeEntries: TimeEntry[] = Array.isArray(backupData.timeEntries)
+        ? backupData.timeEntries.map((e: any) => ({
+            ...e,
+            startTime: e.startTime ? new Date(e.startTime) : undefined,
+            endTime: e.endTime ? new Date(e.endTime) : undefined,
+            periods: e.periods
+              ? e.periods.map((period: any) => ({
+                  ...period,
+                  startTime: period.startTime ? new Date(period.startTime) : undefined,
+                  endTime: period.endTime ? new Date(period.endTime) : undefined,
+                }))
+              : undefined,
+          }))
+        : [];
+
+      let timerState = backupData.timerState || null;
+      if (timerState && timerState.startTime) {
+        timerState = { ...timerState, startTime: new Date(timerState.startTime) };
       }
 
-      const projects: Project[] = backupData.projects.map((project: any, index: number) => {
-        if (!project.id || !project.name || !project.color) {
-          throw new Error(`Invalid project data at index ${index}`);
-        }
-        return {
-          ...project,
-          createdAt: new Date(project.createdAt || new Date())
-        };
-      });
-
-      const tasks: Task[] = backupData.tasks.map((task: any, index: number) => {
-        if (!task.id || !task.name || !task.projectId) {
-          throw new Error(`Invalid task data at index ${index}`);
-        }
-        return {
-          ...task,
-          createdAt: new Date(task.createdAt || new Date())
-        };
-      });
-
-      const timeEntries: TimeEntry[] = backupData.timeEntries.map((entry: any, index: number) => {
-        if (!entry.id || !entry.taskId || !entry.startTime) {
-          throw new Error(`Invalid time entry data at index ${index}`);
-        }
-        
-        let periods = undefined;
-        if (entry.periods && Array.isArray(entry.periods)) {
-          periods = entry.periods.map((period: any) => {
-            if (!period.startTime) {
-              throw new Error(`Invalid period data in time entry ${entry.id}`);
-            }
-            return {
-              startTime: new Date(period.startTime),
-              endTime: period.endTime ? new Date(period.endTime) : undefined,
-            };
-          });
-        }
-
-        return {
-          ...entry,
-          startTime: new Date(entry.startTime),
-          endTime: entry.endTime ? new Date(entry.endTime) : undefined,
-          periods: periods,
-        };
-      });
-
-      let timerState = null;
-      if (backupData.timerState) {
-        try {
-          timerState = {
-            ...backupData.timerState,
-            startTime: backupData.timerState.startTime ? new Date(backupData.timerState.startTime) : undefined
-          };
-        } catch (error) {
-          console.warn('Failed to parse timer state:', error);
-          timerState = null;
-        }
+      const orgTasks: OrgTask[] = Array.isArray(backupData.orgTasks) ? backupData.orgTasks : [];
+      const orgLists: TaskList[] = Array.isArray(backupData.orgLists) ? backupData.orgLists : [];
+      const lister: ListerState | null = backupData.lister || null;
+      const goals: Goal[] = Array.isArray(backupData.goals) ? backupData.goals : [];
+      // Normalize and preserve all goals settings and self-care areas
+      let goalsSettings: any = backupData.goalsSettings || {};
+      // Accept both dailyGoal and dailyPointGoal for compatibility
+      if (goalsSettings.dailyPointGoal && !goalsSettings.dailyGoal) {
+        goalsSettings.dailyGoal = goalsSettings.dailyPointGoal;
       }
+      // Merge weeklyGoals from both possible locations
+      const backupWeeklyGoals = backupData.weeklyGoals || (goalsSettings.weeklyGoals ? goalsSettings.weeklyGoals : undefined);
+      if (backupWeeklyGoals) {
+        goalsSettings.weeklyGoals = backupWeeklyGoals;
+      }
+      // Self-care areas: always use the imported array
+      const goalsAreas: SelfCareArea[] = Array.isArray(backupData.goalsAreas) ? backupData.goalsAreas : [];
 
       // Validate imported data
       const validation = validateImportedData(projects, tasks, timeEntries, timerState);
@@ -174,26 +267,35 @@ export function useBackupRestore() {
         };
       }
 
-      // Save to AsyncStorage
+      // Save to AsyncStorage (all tabs)
       const storagePromises = [
         AsyncStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects)),
         AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks)),
         AsyncStorage.setItem(STORAGE_KEYS.TIME_ENTRIES, JSON.stringify(timeEntries)),
+        AsyncStorage.setItem(STORAGE_KEYS.ORG_TASKS, JSON.stringify(orgTasks)),
+        AsyncStorage.setItem(STORAGE_KEYS.ORG_LISTS, JSON.stringify(orgLists)),
+        AsyncStorage.setItem(STORAGE_KEYS.LISTER, JSON.stringify(lister)),
+        AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(goals)),
+        AsyncStorage.setItem(STORAGE_KEYS.GOALS_SETTINGS, JSON.stringify(goalsSettings)),
+        AsyncStorage.setItem(STORAGE_KEYS.GOALS_AREAS, JSON.stringify(goalsAreas)),
       ];
-
       if (timerState) {
         storagePromises.push(AsyncStorage.setItem(STORAGE_KEYS.TIMER_STATE, JSON.stringify(timerState)));
       }
-
       await Promise.all(storagePromises);
 
-      return { 
-        success: true, 
-        imported: { 
-          projects: projects.length, 
-          tasks: tasks.length, 
+      return {
+        success: true,
+        imported: {
+          projects: projects.length,
+          tasks: tasks.length,
           timeEntries: timeEntries.length,
-          timerState: timerState ? 1 : 0
+          timerState: timerState ? 1 : 0,
+          orgTasks: orgTasks.length,
+          orgLists: orgLists.length,
+          listerLists: lister?.lists?.length || 0,
+          goals: goals.length,
+          goalsAreas: goalsAreas.length,
         },
         warnings: validation.warnings
       };
@@ -203,7 +305,7 @@ export function useBackupRestore() {
     }
   }, []);
 
-  const validateImportedData = (projects: Project[], tasks: Task[], timeEntries: TimeEntry[], timerState: any) => {
+  const validateImportedData = (projects: Project[], tasks: TimeTask[], timeEntries: TimeEntry[], timerState: any) => {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -356,5 +458,6 @@ export function useBackupRestore() {
   return {
     exportData,
     importData,
+    deleteAllData,
   };
 } 

@@ -30,28 +30,40 @@ export default function TimeTrackingIndexScreen() {
       subtitle: timerState.isRunning ? 'Timer is running' : 'Start tracking time',
       icon: 'timer' as const,
       route: '/time-tracking/timer' as const,
-      color: '#4CAF50',
+      color: '#1B5E20', // green 900
     },
     {
       title: 'Tasks & Projects',
-      subtitle: `${projects.length} projects, ${tasks.length} tasks`,
+      subtitle: (
+        <>
+          <ThemedText style={styles.highlightNumber}>{projects.length}</ThemedText>
+          {` projects, `}
+          <ThemedText style={styles.highlightNumber}>{tasks.length}</ThemedText>
+          {` tasks`}
+        </>
+      ),
       icon: 'folder' as const,
       route: '/time-tracking/tasks' as const,
-      color: '#2196F3',
+      color: '#388E3C', // green 700
     },
     {
       title: 'Timesheet',
-      subtitle: `${timeEntries.length} time entries`,
+      subtitle: (
+        <>
+          <ThemedText style={styles.highlightNumber}>{timeEntries.length}</ThemedText>
+          {` time entr${timeEntries.length === 1 ? 'y' : 'ies'}`}
+        </>
+      ),
       icon: 'calendar' as const,
       route: '/time-tracking/timesheet' as const,
-      color: '#FF9800',
+      color: '#43A047', // green 600
     },
     {
       title: 'Reports',
       subtitle: 'View analytics and insights',
       icon: 'insert-chart' as const,
       route: '/time-tracking/reports' as const,
-      color: '#9C27B0',
+      color: '#66BB6A', // green 400
     },
   ], [timerState.isRunning, projects.length, tasks.length, timeEntries.length]);
 
@@ -156,6 +168,15 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     opacity: 0.7,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  highlightNumber: {
+    color: '#43A047',
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginRight: 2,
   },
   activeTimerBanner: {
     flexDirection: 'row',

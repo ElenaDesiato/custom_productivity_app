@@ -2,13 +2,18 @@ import { router, useFocusEffect } from "expo-router";
 import React from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
-import { TaskColorIndicator } from "@/components/TaskColorIndicator";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useThemeColor } from "@/hooks/useThemeColor";
+
+import { useGoalsStore } from '@/stores/goalsStore';
+import { useTasksStore } from '@/stores/tasksStore';
 import { useTimeTrackingStore } from "@/stores/timeTrackingStore";
+
+// Import useEffect and useCallback
+import { useCallback } from 'react';
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -16,87 +21,120 @@ export default function HomeScreen() {
   const timerState = useTimeTrackingStore(s => s.timerState);
   const timeEntries = useTimeTrackingStore(s => s.timeEntries);
   const projects = useTimeTrackingStore(s => s.projects);
-  const tasks = useTimeTrackingStore(s => s.tasks);
   const loadData = useTimeTrackingStore(s => s.loadData);
+  const tasks = useTasksStore(s => s.tasks);
+  const lists = useTasksStore(s => s.lists);
+  const reloadTasks = useTasksStore(s => s.reloadTasks);
+  const goals = useGoalsStore(s => s.goals);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, "background");
   const cardBackgroundColor = "#F5F5F5";
 
   // Load data when screen comes into focus
+
+  // Always reload tasks from AsyncStorage when this screen is focused
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       loadData();
-    }, [loadData])
+      reloadTasks();
+    }, [loadData, reloadTasks])
   );
 
   const today = new Date();
+  today.setHours(0,0,0,0);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  const todayIdx = today.getDay();
+
+  // Productive time
   const todayEntries = timeEntries
     .filter(entry => {
       const entryDate = new Date(entry.startTime);
       return entryDate.toDateString() === today.toDateString();
     })
     .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-
   const totalTodayHours = todayEntries.reduce((total, entry) => {
     const duration = entry.endTime ? 
       (new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime()) / (1000 * 60 * 60) : 0;
     return total + duration;
   }, 0);
 
-  // Helper function to get task and project info from taskId
+  // Completed tasks today: count only those completed today
+  const completedTasksToday = tasks.filter(t => {
+    if (!t.completed || !t.completedAt) return false;
+    const completedDate = new Date(t.completedAt);
+    return (
+      completedDate.getFullYear() === today.getFullYear() &&
+      completedDate.getMonth() === today.getMonth() &&
+      completedDate.getDate() === today.getDate()
+    );
+  }).length;
+
+  // Completed goals today
+  const completedGoalsToday = goals.filter(g => g.completedDates?.includes(todayStr)).length;
+
+  // Helper function to get task info for both organization and time-tracking tasks
   const getTaskInfo = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return { displayName: 'Untitled Task', projectColor: '#999999', taskColor: undefined };
-    
-    const project = projects.find(p => p.id === task.projectId);
-    const projectName = project ? project.name : 'Unknown Project';
-    const projectColor = project?.color || '#999999';
-    const taskColor = task.color;
-    
-    return {
-      displayName: `${projectName}/${task.name}`,
-      projectColor,
-      taskColor
-    };
+    // Try organization tasks first
+    const orgTask = tasks.find(t => t.id === taskId);
+    if (orgTask) {
+      return {
+        displayName: orgTask.name,
+        projectColor: '#1976D2',
+        taskColor: undefined
+      };
+    }
+    // Try time-tracking tasks
+    const ttTask = useTimeTrackingStore.getState().tasks.find(t => t.id === taskId);
+    if (ttTask) {
+      // Find project for color
+      const project = projects.find(p => p.id === ttTask.projectId);
+      return {
+        displayName: ttTask.name,
+        projectColor: project?.color || '#388E3C',
+        taskColor: ttTask.color || project?.color || '#388E3C',
+      };
+    }
+    return { displayName: 'Untitled Task', projectColor: '#999', taskColor: undefined };
   };
 
   const quickActions = [
     {
       title: "Start Timer",
       icon: "timer" as const,
-      route: "/time-tracking" as const,
-      color: "#4CAF50",
-    },
-    {
-      title: "Add Task",
-      icon: "add-task" as const,
-      route: "/time-tracking/tasks" as const,
-      color: "#4CAF50",
+      route: "/time-tracking/timer" as const,
+      color: "#388E3C", // green 700
     },
     {
       title: "View Timesheet",
       icon: "schedule" as const,
       route: "/time-tracking/timesheet" as const,
-      color: "#4CAF50",
+      color: "#43A047", // green 600
     },
     {
-      title: "View Calendar",
-      icon: "calendar" as const,
-      route: "/calendar" as const,
-      color: "#FF9800",
+      title: "View To-do List",
+      icon: "checklist" as const,
+      route: "/organization/tasks" as const,
+      color: "#1976D2", // blue 700
     },
     {
-      title: "Tasks & Goals",
-      icon: "checkmark.circle" as const,
-      route: "/tasks-goals" as const,
-      color: "#2196F3",
+      title: "View Goals",
+      icon: "flag" as const,
+      route: "/organization/goals" as const,
+      color: "#42A5F5", // blue 400
+    },
+    {
+      title: "View Lister",
+      icon: "list" as const,
+      route: "/organization/lister" as const,
+      color: "#90CAF9", // blue 200
     },
     {
       title: "",
-      icon: "" as const,
-      route: "" as const,
-      color: "transparent",
+      icon: undefined,
+      route: undefined,
+      color: "#fff",
     },
   ];
 
@@ -121,8 +159,8 @@ export default function HomeScreen() {
           Today's Progress
         </ThemedText>
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: cardBackgroundColor }]}>
-            <IconSymbol name="timer" size={24} color="#4CAF50" />
+          <View style={[styles.statCard, { backgroundColor: cardBackgroundColor }]}> 
+            <IconSymbol name="timer" size={24} color="#1B5E20" />
             <ThemedText type="secondary" style={styles.statValue}>
               {totalTodayHours.toFixed(1)}h
             </ThemedText>
@@ -130,22 +168,22 @@ export default function HomeScreen() {
               Productive Time
             </ThemedText>
           </View>
-          <View style={[styles.statCard, { backgroundColor: cardBackgroundColor }]}>
-            <IconSymbol name="checkmark.circle" size={24} color="#2196F3" />
+          <View style={[styles.statCard, { backgroundColor: cardBackgroundColor }]}> 
+            <IconSymbol name="checklist" size={24} color="#1976D2" />
             <ThemedText type="secondary" style={styles.statValue}>
-              N/A
+              {completedTasksToday}
             </ThemedText>
             <ThemedText type="secondary" style={styles.statLabel}>
               Completed Tasks
             </ThemedText>
           </View>
-          <View style={[styles.statCard, { backgroundColor: cardBackgroundColor }]}>
-            <IconSymbol name="calendar" size={24} color="#FF9800" />
+          <View style={[styles.statCard, { backgroundColor: cardBackgroundColor }]}> 
+            <IconSymbol name="flag" size={24} color="#42A5F5" />
             <ThemedText type="secondary" style={styles.statValue}>
-              N/A
+              {completedGoalsToday}
             </ThemedText>
             <ThemedText type="secondary" style={styles.statLabel}>
-              Upcoming Events
+              Completed Goals
             </ThemedText>
           </View>
         </View>
@@ -200,41 +238,121 @@ export default function HomeScreen() {
         </ThemedView>
       )}
 
-      {/* Recent Activity */}
-      {todayEntries.length > 0 && (
-        <ThemedView style={[styles.recentSection, { backgroundColor }]}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Recent Activity
-          </ThemedText>
-          <View style={styles.recentList}>
-            {todayEntries.slice(0, 3).map((entry, index) => {
-              const taskInfo = getTaskInfo(entry.taskId);
-              return (
-                <View key={index} style={styles.recentItem}>
-                  <View style={styles.recentItemContent}>
-                    <View style={styles.taskInfoContainer}>
-                      <TaskColorIndicator 
-                        projectColor={taskInfo.projectColor} 
-                        taskColor={taskInfo.taskColor} 
-                        size={16} 
-                      />
-                      <ThemedText type="default" style={styles.recentItemTitle}>
-                        {taskInfo.displayName}
+      {/* Recent Activity: 5 most recent of timesheet entry, task completion, goal completion */}
+      <ThemedView style={[styles.recentSection, { backgroundColor }]}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>
+          Recent Activity
+        </ThemedText>
+        <View style={styles.recentList}>
+          {
+            // Gather all recent items for today
+            [
+              // Timesheet entries (endTime today)
+              ...timeEntries
+                .filter(entry => entry.endTime && new Date(entry.endTime).toDateString() === today.toDateString())
+                .map(entry => ({
+                  type: 'time' as const,
+                  date: entry.endTime ? new Date(entry.endTime) : today,
+                  entry,
+                })),
+              // Completed tasks (completedAt today)
+              ...tasks
+                .filter(t => t.completed && t.completedAt && new Date(t.completedAt).toDateString() === today.toDateString())
+                .map(t => ({
+                  type: 'task' as const,
+                  date: t.completedAt ? new Date(t.completedAt) : today,
+                  task: t,
+                })),
+              // Completed goals (completedDates includes todayStr)
+              ...goals
+                .filter(g => g.completedDates?.includes(todayStr))
+                .map(g => ({
+                  type: 'goal' as const,
+                  date: today,
+                  goal: g,
+                })),
+            ]
+            .sort((a, b) => b.date.getTime() - a.date.getTime())
+            .slice(0, 5)
+            .map((item, idx) => {
+              if (item.type === 'time' && 'entry' in item) {
+                const entry = item.entry;
+                const taskInfo = getTaskInfo(entry.taskId);
+                return (
+                  <View key={`time-${entry.id}`} style={styles.recentItem}>
+                    <View style={styles.recentItemContent}>
+                      <View style={styles.taskInfoContainer}>
+                        <IconSymbol name="timer" size={16} color="#388E3C" />
+                        <ThemedText type="default" style={styles.recentItemTitle}>
+                          {taskInfo.displayName}
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="default" style={styles.recentItemTime}>
+                        {formatTime(entry.startTime.toString())} - {formatTime(entry.endTime?.toString() || '')}
                       </ThemedText>
                     </View>
-                    <ThemedText type="default" style={styles.recentItemTime}>
-                      {formatTime(entry.startTime.toString())} - {entry.endTime ? formatTime(entry.endTime.toString()) : 'In Progress'}
+                    <ThemedText type="secondary" style={styles.recentItemDuration}>
+                      {formatDuration(entry.startTime.toString(), entry.endTime?.toString())}
                     </ThemedText>
                   </View>
-                  <ThemedText type="secondary" style={styles.recentItemDuration}>
-                    {formatDuration(entry.startTime.toString(), entry.endTime?.toString())}
-                  </ThemedText>
-                </View>
-              );
-            })}
-          </View>
-        </ThemedView>
-      )}
+                );
+              } else if (item.type === 'task' && 'task' in item) {
+                const task = item.task;
+                return (
+                  <View key={`task-${task.id}`} style={styles.recentItem}>
+                    <View style={styles.recentItemContent}>
+                      <View style={styles.taskInfoContainer}>
+                        <IconSymbol name="checklist" size={16} color="#1976D2" />
+                        <ThemedText type="default" style={styles.recentItemTitle}>
+                          {task.name}
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="default" style={styles.recentItemTime}>
+                        {formatTime(task.completedAt || '')}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="secondary" style={styles.recentItemDuration}>
+                      Completed
+                    </ThemedText>
+                  </View>
+                );
+              } else if (item.type === 'goal' && 'goal' in item) {
+                const goal = item.goal;
+                // Try to find a completion date string for today
+                let completionDateStr = todayStr;
+                if (goal.completedDates && goal.completedDates.length > 0) {
+                  // Find the most recent completion for today
+                  const todayCompletion = goal.completedDates.find(d => d === todayStr);
+                  if (todayCompletion) {
+                    // Format as 'Sep 2, 2025'
+                    const dateObj = new Date(todayCompletion);
+                    completionDateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                  }
+                }
+                return (
+                  <View key={`goal-${goal.id}`} style={styles.recentItem}>
+                    <View style={styles.recentItemContent}>
+                      <View style={styles.taskInfoContainer}>
+                        <IconSymbol name="flag" size={16} color="#42A5F5" />
+                        <ThemedText type="default" style={styles.recentItemTitle}>
+                          {goal.description}
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="default" style={styles.recentItemTime}>
+                        {completionDateStr}
+                      </ThemedText>
+                    </View>
+                    <ThemedText type="secondary" style={styles.recentItemDuration}>
+                      Completed
+                    </ThemedText>
+                  </View>
+                );
+              }
+              return null;
+            })
+          }
+        </View>
+      </ThemedView>
     </ScrollView>
   );
 }
@@ -275,10 +393,11 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     opacity: 0.7,
+    marginBottom: 0,
   },
   summarySection: {
     padding: 20,
-    marginTop: 8,
+    marginTop: 0, 
   },
   sectionTitle: {
     fontSize: 18,
@@ -313,14 +432,16 @@ const styles = StyleSheet.create({
   actionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
   },
   actionCard: {
-    width: "31%",
+    width: '30%',
+    maxWidth: 120,
     borderRadius: 10,
-    padding: 12,
+    padding: 10,
     marginBottom: 12,
     alignItems: "center",
+    marginHorizontal: 4,
   },
   actionCardDisabled: {
     opacity: 0.5,

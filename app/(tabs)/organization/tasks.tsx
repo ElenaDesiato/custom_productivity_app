@@ -86,8 +86,21 @@ export default function TasksScreen() {
     setNewListColor(COLORS[0]);
     setShowListModal(false);
   };
-  const handleDeleteList = async (listId: string) => {
-    await deleteList(listId);
+  const handleDeleteList = (listId: string) => {
+    Alert.alert(
+      'Delete List',
+      'Are you sure you want to delete this list? All tasks in this list will also be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteList(listId);
+          },
+        },
+      ]
+    );
   };
   const openEditListModal = (list: TaskList) => {
     setEditingList(list);

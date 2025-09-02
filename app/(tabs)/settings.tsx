@@ -2,8 +2,8 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useBackupRestore } from '@/hooks/useBackupRestore';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useGoalsStore } from '@/stores/goalsStore';
 import { useTimeTrackingStore } from '@/stores/timeTrackingStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,27 +15,19 @@ import {
   View,
 } from 'react-native';
 
-// Define all storage keys to ensure complete data clearing
-const ALL_STORAGE_KEYS = [
-  'timeTracking_projects',
-  'timeTracking_tasks',
-  'timeTracking_timeEntries',
-  'timeTracking_timerState',
-  'reports_selected_period',
-  'reports_selected_type',
-  'reports_custom_start_date',
-  'reports_custom_end_date',
-];
+
+
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
-  const { exportData, importData } = useBackupRestore();
+  const { exportData, importData, deleteAllData } = useBackupRestore();
   // Zustand selectors
   const loadData = useTimeTrackingStore(s => s.loadData);
   const resetData = useTimeTrackingStore(s => s.resetData);
-  const projects = useTimeTrackingStore(s => s.projects);
-  const tasks = useTimeTrackingStore(s => s.tasks);
-  const timeEntries = useTimeTrackingStore(s => s.timeEntries);
+  // Goals store reloads
+  const reloadGoals = useGoalsStore(s => s.reloadGoals);
+  const reloadAreas = useGoalsStore(s => s.reloadAreas);
+  const reloadUserSettings = useGoalsStore(s => s.reloadUserSettings);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -45,11 +37,13 @@ export default function SettingsScreen() {
     loadData();
   }, [loadData]);
 
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
       const result = await exportData();
       if (result.success) {
+        await loadData(); // reload all state after export (in case of side effects)
         Alert.alert(
           'Backup Successful',
           `Your data has been exported to: ${result.fileName}`,
@@ -65,6 +59,7 @@ export default function SettingsScreen() {
     }
   };
 
+
   const handleImport = async () => {
     Alert.alert(
       'Import Data',
@@ -79,10 +74,16 @@ export default function SettingsScreen() {
             try {
               const result = await importData();
               if (result.success) {
-                await loadData(); // Refresh the app data
+                await loadData(); // reload all state after import
+                // Immediately reload goals state so UI updates
+                await Promise.all([
+                  reloadGoals(),
+                  reloadAreas(),
+                  reloadUserSettings(),
+                ]);
                 Alert.alert(
                   'Import Successful',
-                  `Imported: ${result.imported?.projects || 0} projects, ${result.imported?.tasks || 0} tasks, ${result.imported?.timeEntries || 0} time entries`,
+                  'Your data has been restored!',
                   [{ text: 'OK' }]
                 );
               } else {
@@ -99,11 +100,11 @@ export default function SettingsScreen() {
     );
   };
 
+
   const handleClearData = async () => {
-    const totalItems = projects.length + tasks.length + timeEntries.length;
     Alert.alert(
       'Clear All Data',
-      `This will permanently delete all your data (${totalItems} items). This action cannot be undone. Are you absolutely sure?`,
+      `This will permanently delete all your data. This action cannot be undone. Are you absolutely sure?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -112,28 +113,23 @@ export default function SettingsScreen() {
           onPress: async () => {
             setIsClearing(true);
             try {
-              // Clear all known storage keys
-              await Promise.all(ALL_STORAGE_KEYS.map(key => AsyncStorage.removeItem(key)));
-              
-              // Also clear any other keys that might start with 'timeTracking_' or 'reports_'
-              const allKeys = await AsyncStorage.getAllKeys();
-              const keysToRemove = allKeys.filter(key => 
-                key.startsWith('timeTracking_') || 
-                key.startsWith('reports_')
-              );
-              
-              if (keysToRemove.length > 0) {
-                await Promise.all(keysToRemove.map(key => AsyncStorage.removeItem(key)));
+              const result = await deleteAllData();
+              await loadData(); // reload all state after deletion
+              if (result.success) {
+                // Immediately reload goals state so UI updates
+                await Promise.all([
+                  reloadGoals(),
+                  reloadAreas(),
+                  reloadUserSettings(),
+                ]);
+                Alert.alert(
+                  'Data Cleared',
+                  'All your data has been permanently deleted.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                Alert.alert('Clear Failed', result.error || 'An error occurred while clearing data');
               }
-              
-              // Immediately reset the app state to reflect the cleared data
-              await resetData();
-              
-              Alert.alert(
-                'Data Cleared',
-                'All your data has been permanently deleted.',
-                [{ text: 'OK' }]
-              );
             } catch (error) {
               console.error('Clear data error:', error);
               Alert.alert('Clear Failed', 'An error occurred while clearing data');
@@ -228,7 +224,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Backup Data</Text>
           <Text style={styles.cardDescription}>
-            Export all your projects, tasks, and time entries to a JSON file. 
+            Export all your data to a JSON file. 
             This file can be saved to your device or shared via email/cloud storage.
           </Text>
           <TouchableOpacity
@@ -278,7 +274,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Clear All Data</Text>
           <Text style={styles.cardDescription}>
-            Permanently delete all your projects, tasks, and time entries. 
+            Permanently delete all the data associated with this app.
             This action cannot be undone. Make sure to backup your data first.
           </Text>
           <TouchableOpacity
