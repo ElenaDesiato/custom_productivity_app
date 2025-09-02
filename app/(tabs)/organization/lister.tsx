@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { State as GestureState, PanGestureHandler } from 'react-native-gesture-handler';
 
@@ -7,32 +7,35 @@ import { ThemedText } from "../../../components/ThemedText";
 import { ThemedView } from "../../../components/ThemedView";
 import { Colors } from '../../../constants/Colors';
 import { useColorScheme } from "../../../hooks/useColorScheme";
-import { useLister } from "../../../hooks/useLister";
+import { useListerStore } from '../../../stores/listerStore';
 import type { ListerItem } from '../../../types/lister';
 import { ListerCategory, ListerList } from '../../../types/lister';
 
 // Placeholder for drag-and-drop, to be replaced with a library
 
 export default function ListerScreen() {
-  // All hooks must be at the top, before any returns or logic
-  const {
-    state,
-    loading,
-    createList,
-    renameList,
-    updateListColor,
-    deleteList,
-    addCategory,
-    renameCategory,
-    deleteCategory,
-    addItem,
-    deleteItem,
-    toggleItemInCart,
-    reorderCategories,
-    reorderItems,
-    moveItemToCategory,
-    selectList,
-  } = useLister();
+  // Zustand store hooks
+  const lists = useListerStore(s => s.lists);
+  const lastId = useListerStore(s => s.lastId);
+  const selectedListId = useListerStore(s => s.selectedListId);
+  const loading = useListerStore(s => s.loading);
+  const createList = useListerStore(s => s.createList);
+  const renameList = useListerStore(s => s.renameList);
+  const updateListColor = useListerStore(s => s.updateListColor);
+  const deleteList = useListerStore(s => s.deleteList);
+  const addCategory = useListerStore(s => s.addCategory);
+  const renameCategory = useListerStore(s => s.renameCategory);
+  const deleteCategory = useListerStore(s => s.deleteCategory);
+  const addItem = useListerStore(s => s.addItem);
+  const deleteItem = useListerStore(s => s.deleteItem);
+  const toggleItemInCart = useListerStore(s => s.toggleItemInCart);
+  const reorderCategories = useListerStore(s => s.reorderCategories);
+  const reorderItems = useListerStore(s => s.reorderItems);
+  const moveItemToCategory = useListerStore(s => s.moveItemToCategory);
+  const selectList = useListerStore(s => s.selectList);
+  const loadState = useListerStore(s => s.loadState);
+  // Load persisted state on mount
+  useEffect(() => { loadState(); }, []);
   const colorScheme = useColorScheme();
   const [newListName, setNewListName] = useState("");
   const [newItemName, setNewItemName] = useState("");
@@ -48,7 +51,7 @@ export default function ListerScreen() {
     '#22292f', '#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#E91E63', '#607D8B',
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
   ];
-  const selectedList = state.lists.find((l) => l.id === state.selectedListId);
+  const selectedList = lists.find((l) => l.id === selectedListId);
 
   // Floating Action Button for Add List
   const renderFab = () => (
@@ -206,7 +209,7 @@ export default function ListerScreen() {
 
   if (loading) return <ThemedText>Loading...</ThemedText>;
 
-  if (!loading && state.lists.length === 0) {
+  if (!loading && lists.length === 0) {
     return (
       <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
         <Ionicons name="list-circle-outline" size={64} color={colorScheme === 'dark' ? '#888' : '#bbb'} style={{ marginBottom: 16 }} />
@@ -229,9 +232,9 @@ export default function ListerScreen() {
     categoryId: number,
     itemId: number,
     direction: 'up' | 'down',
-    reorderItems: (listId: number, categoryId: number, newOrder: number[]) => void,
+    reorderItemsWithCat: (listId: number, categoryId: number, newOrder: number[]) => void,
     moveItemToCategory: (listId: number, itemId: number, newCategoryId: number) => void,
-  categories: ListerCategory[]
+    categories: ListerCategory[]
   ) {
     const items: ListerItem[] = list.items.filter((i: ListerItem) => i.categoryId === categoryId).sort((a: ListerItem, b: ListerItem) => a.order - b.order);
     const idx = items.findIndex((i: ListerItem) => i.id === itemId);
@@ -256,7 +259,7 @@ export default function ListerScreen() {
     // Swap
     const newOrder = items.map((i: ListerItem) => i.id);
     [newOrder[idx], newOrder[newIdx]] = [newOrder[newIdx], newOrder[idx]];
-    reorderItems(list.id, categoryId, newOrder);
+  reorderItemsWithCat(list.id, categoryId, newOrder);
   }
 
   return (
@@ -302,7 +305,7 @@ export default function ListerScreen() {
               borderColor: colorScheme === 'dark' ? '#333' : '#eee',
               overflow: 'visible',
             }}>
-              {state.lists.map(list => (
+              {lists.map(list => (
                 <TouchableOpacity
                   key={list.id}
                   style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: colorScheme === 'dark' ? '#333' : '#eee' }}
@@ -435,7 +438,7 @@ export default function ListerScreen() {
                               cat.id,
                               item.id,
                               'up',
-                              reorderItems,
+                              (listId, categoryId, newOrder) => reorderItems(listId, newOrder),
                               moveItemToCategory,
                               orderedCats
                             );
@@ -445,7 +448,7 @@ export default function ListerScreen() {
                               cat.id,
                               item.id,
                               'down',
-                              reorderItems,
+                              (listId, categoryId, newOrder) => reorderItems(listId, newOrder),
                               moveItemToCategory,
                               orderedCats
                             );

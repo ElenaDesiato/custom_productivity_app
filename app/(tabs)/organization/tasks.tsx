@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useOrganization } from '@/hooks/useOrganization';
+import { useTasksStore } from '@/stores/tasksStore';
 import { Task, TaskList } from '@/types/organization';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React from 'react';
@@ -21,7 +21,19 @@ export default function TasksScreen() {
   const colorScheme = useColorScheme();
   const themeBg = Colors[colorScheme ?? 'light'].background;
   const themeText = Colors[colorScheme ?? 'light'].text;
-  const { tasks, setTasks, lists, setLists } = useOrganization();
+  const tasks = useTasksStore(s => s.tasks);
+  const lists = useTasksStore(s => s.lists);
+  const loading = useTasksStore(s => s.loading);
+  const reloadTasks = useTasksStore(s => s.reloadTasks);
+  const reloadLists = useTasksStore(s => s.reloadLists);
+  const addTask = useTasksStore(s => s.addTask);
+  const updateTask = useTasksStore(s => s.updateTask);
+  const deleteTask = useTasksStore(s => s.deleteTask);
+  const setTasks = useTasksStore(s => s.setTasks);
+  const addList = useTasksStore(s => s.addList);
+  const updateList = useTasksStore(s => s.updateList);
+  const deleteList = useTasksStore(s => s.deleteList);
+  const setLists = useTasksStore(s => s.setLists);
   const [showListModal, setShowListModal] = React.useState(false);
   const [newListName, setNewListName] = React.useState('');
   const [newListColor, setNewListColor] = React.useState(COLORS[0]);
@@ -51,13 +63,13 @@ export default function TasksScreen() {
     setShowEditTaskModal(true);
   }
 
-  function handleSaveEditTask() {
+  async function handleSaveEditTask() {
     if (!editingTask) return;
     if (!newTaskName.trim()) {
       Alert.alert('Missing Task Name', 'Please enter a name for your task.');
       return;
     }
-    setTasks(tasks.map(t => t.id === editingTask.id ? { ...t, name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId || t.listId, dueDate: editTaskDueDate || undefined } : t));
+    await updateTask({ ...editingTask, name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId || editingTask.listId, dueDate: editTaskDueDate || undefined });
     setEditingTask(null);
     setShowEditTaskModal(false);
     setNewTaskName('');
@@ -66,29 +78,16 @@ export default function TasksScreen() {
     setEditTaskDueDate('');
   }
 
-  const handleEditList = () => {
+  const handleEditList = async () => {
     if (!editingList || !newListName.trim()) return;
-    setLists(lists.map(l => l.id === editingList.id ? { ...l, name: newListName.trim(), color: newListColor } : l));
+    await updateList({ ...editingList, name: newListName.trim(), color: newListColor });
     setEditingList(null);
     setNewListName('');
     setNewListColor(COLORS[0]);
     setShowListModal(false);
   };
-  const handleDeleteList = (listId: string) => {
-    setLists(lists.filter(l => l.id !== listId));
-    setTasks(tasks.map(t => {
-      if (t.listId === listId && t.archived) {
-        return {
-          ...t,
-          listId: `deleted-${listId}`,
-          deletedList: true,
-        };
-      } else if (t.listId === listId) {
-        // Only remove non-archived tasks
-        return null;
-      }
-      return t;
-    }).filter(Boolean) as Task[]);
+  const handleDeleteList = async (listId: string) => {
+    await deleteList(listId);
   };
   const openEditListModal = (list: TaskList) => {
     setEditingList(list);
@@ -102,25 +101,22 @@ export default function TasksScreen() {
   function getRandomId() {
     return Date.now().toString() + Math.floor(Math.random() * 10000).toString();
   }
-  const handleAddList = () => {
+  const handleAddList = async () => {
     if (!newListName.trim()) return;
-    setLists([...lists, { id: getRandomId(), name: newListName.trim(), color: newListColor }]);
+    await addList({ id: getRandomId(), name: newListName.trim(), color: newListColor });
     setNewListName('');
     setNewListColor(COLORS[0]);
     setShowListModal(false);
   };
 
   // Add a new task
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTaskName.trim()) {
       Alert.alert('Missing Task Name', 'Please enter a name for your task.');
       return;
     }
     if (!selectedListId) return;
-    setTasks([
-      ...tasks,
-      { id: getRandomId(), name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId, completed: false, archived: false, dueDate: newTaskDueDate || undefined }
-    ]);
+    await addTask({ id: getRandomId(), name: newTaskName.trim(), details: newTaskDetails.trim(), listId: selectedListId, completed: false, archived: false, dueDate: newTaskDueDate || undefined });
     setNewTaskName('');
     setNewTaskDetails('');
     setNewTaskDueDate('');
@@ -128,18 +124,16 @@ export default function TasksScreen() {
   };
 
   // Complete a task
-  const handleCompleteTask = (taskId: string) => {
-    setTasks(tasks.map(t =>
-      t.id === taskId
-        ? { ...t, completed: true, archived: true, completedAt: new Date().toISOString() }
-        : t
-    ));
+  const handleCompleteTask = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    await updateTask({ ...task, completed: true, archived: true, completedAt: new Date().toISOString() });
     setSelectedTask(null);
   };
 
   // Delete a task
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(tasks.filter(t => t.id !== taskId));
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteTask(taskId);
     setSelectedTask(null);
   };
 
@@ -210,6 +204,11 @@ export default function TasksScreen() {
     if (listId.startsWith('deleted-')) return '#ccc';
     return lists.find(l => l.id === listId)?.color || '#ccc';
   }
+  // Load tasks and lists on mount
+  React.useEffect(() => {
+    reloadTasks();
+    reloadLists();
+  }, []);
 
   // Render a single list with its tasks
   const renderList = ({ item: list }: { item: TaskList }) => (

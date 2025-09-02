@@ -1,8 +1,9 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useSelfCareAreas } from '@/hooks/useSelfCareAreas';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { useSelfCareAreas } from '@/hooks/useSelfCareAreas';
+import { useGoalsStore } from '@/stores/goalsStore';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -15,31 +16,25 @@ type WeeklyGoals = { [areaId: string]: string };
 export default function GoalsSettingsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
-  const { areas } = useSelfCareAreas();
-  const [dailyGoal, setDailyGoal] = useState<string>('20');
-  const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoals>({});
+  const areas = useGoalsStore((s) => s.areas);
+  const userSettings = useGoalsStore((s) => s.userSettings);
+  const updateUserSettings = useGoalsStore((s) => s.updateUserSettings);
+  const weeklyGoals = useGoalsStore((s) => s.weeklyGoals);
+  const setWeeklyGoal = useGoalsStore((s) => s.setWeeklyGoal);
+  const [dailyGoal, setDailyGoal] = useState<string>(userSettings.dailyPointGoal?.toString() || '20');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    AsyncStorage.getItem(SETTINGS_KEY).then(data => {
-      if (data) {
-        const parsed = JSON.parse(data);
-        setDailyGoal(parsed.dailyGoal || '20');
-        setWeeklyGoals(parsed.weeklyGoals || {});
-      }
-      setLoading(false);
-    });
-  }, []);
+    setDailyGoal(userSettings.dailyPointGoal?.toString() || '20');
+    setLoading(false);
+  }, [userSettings.dailyPointGoal]);
 
   const saveSettings = async () => {
-    await AsyncStorage.setItem(
-      SETTINGS_KEY,
-      JSON.stringify({ dailyGoal, weeklyGoals })
-    );
+    await updateUserSettings({ dailyPointGoal: Number(dailyGoal) });
   };
 
   const handleWeeklyGoalChange = (areaId: string, value: string) => {
-    setWeeklyGoals(prev => ({ ...prev, [areaId]: value }));
+    setWeeklyGoal(areaId, value);
   };
 
   if (loading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><Text>Loading...</Text></View>;

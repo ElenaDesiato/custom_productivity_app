@@ -3,10 +3,9 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useGoals } from '@/hooks/useGoals';
-import { useSelfCareAreas } from '@/hooks/useSelfCareAreas';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
+import { useGoalsStore } from '@/stores/goalsStore';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
+import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 const SETTINGS_KEY = 'goals_settings';
@@ -25,25 +24,17 @@ function getSunday(d: Date) {
 
 export default function WeeklyAreaGoalsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
-  const { areas } = useSelfCareAreas();
-  const { goals } = useGoals();
-  const [weeklyGoals, setWeeklyGoals] = useState<{ [areaId: string]: string }>({});
-  const [loading, setLoading] = useState(true);
+  const areas = useGoalsStore((s) => s.areas);
+  const goals = useGoalsStore((s) => s.goals);
+  const weeklyGoals = useGoalsStore((s) => s.weeklyGoals);
 
   // Get current week range
   const today = new Date();
   const weekStart = getMonday(today).toISOString().slice(0, 10);
   const weekEnd = getSunday(today).toISOString().slice(0, 10);
 
-  useEffect(() => {
-    AsyncStorage.getItem(SETTINGS_KEY).then(data => {
-      if (data) {
-        const parsed = JSON.parse(data);
-        setWeeklyGoals(parsed.weeklyGoals || {});
-      }
-      setLoading(false);
-    });
-  }, []);
+  // No need to load from AsyncStorage, store handles it
+  const loading = false;
 
   // Calculate points per area for this week
   const areaProgress = areas.map(area => {

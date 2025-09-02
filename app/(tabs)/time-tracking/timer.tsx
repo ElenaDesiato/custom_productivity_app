@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useTimeTrackingStore } from '@/stores/timeTrackingStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
 
@@ -13,20 +13,18 @@ import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 're
 
 export default function TimerScreen() {
   const colorScheme = useColorScheme();
-  const {
-    timerState,
-    projects,
-    tasks,
-    startTimer,
-    startTimerWithCustomTime,
-    stopTimer,
-    pauseTimer,
-    resumeTimer,
-    getCurrentTask,
-    formatTime,
-    addTimeEntry,
-    loadData,
-  } = useTimeTracking();
+  const timerState = useTimeTrackingStore(s => s.timerState);
+  const projects = useTimeTrackingStore(s => s.projects);
+  const tasks = useTimeTrackingStore(s => s.tasks);
+  const startTimer = useTimeTrackingStore(s => s.startTimer);
+  const startTimerWithCustomTime = useTimeTrackingStore(s => s.startTimerWithCustomTime);
+  const stopTimer = useTimeTrackingStore(s => s.stopTimer);
+  const pauseTimer = useTimeTrackingStore(s => s.pauseTimer);
+  const resumeTimer = useTimeTrackingStore(s => s.resumeTimer);
+  const getCurrentTask = useTimeTrackingStore(s => s.getCurrentTask);
+  const formatTime = useTimeTrackingStore(s => s.formatTime);
+  const addTimeEntry = useTimeTrackingStore(s => s.addTimeEntry);
+  const loadData = useTimeTrackingStore(s => s.loadData);
 
   const [showManualModal, setShowManualModal] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState('');

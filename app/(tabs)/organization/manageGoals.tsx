@@ -1,21 +1,19 @@
 import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
-import { useGoals } from '@/hooks/useGoals';
-import { useSelfCareAreas } from '@/hooks/useSelfCareAreas';
+import { useGoalsStore } from '@/stores/goalsStore';
 import { Goal } from '@/types/goals';
-// import { DEFAULT_GOAL_CATEGORIES } from '@/types/tasksAndGoals';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 
-// You may need to create or update this modal component for editing/adding goals
-// import GoalEditorModal from '@/components/GoalEditorModal';
-
 export default function AllGoalsManager() {
   const colorScheme = useColorScheme() || 'light';
-  const { goals, addGoal, updateGoal, deleteGoal } = useGoals();
-  const { areas } = useSelfCareAreas();
+  const goals = useGoalsStore((s) => s.goals);
+  const addGoal = useGoalsStore((s) => s.addGoal);
+  const updateGoal = useGoalsStore((s) => s.updateGoal);
+  const deleteGoal = useGoalsStore((s) => s.deleteGoal);
+  const areas = useGoalsStore((s) => s.areas);
   const styles = getStyles(colorScheme);
   const [modalVisible, setModalVisible] = useState(false);
   const [desc, setDesc] = useState('');

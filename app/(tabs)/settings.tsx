@@ -2,17 +2,17 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useBackupRestore } from '@/hooks/useBackupRestore';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useTimeTrackingStore } from '@/stores/timeTrackingStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 // Define all storage keys to ensure complete data clearing
@@ -30,7 +30,12 @@ const ALL_STORAGE_KEYS = [
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const { exportData, importData } = useBackupRestore();
-  const { loadData, resetData, projects, tasks, timeEntries } = useTimeTracking();
+  // Zustand selectors
+  const loadData = useTimeTrackingStore(s => s.loadData);
+  const resetData = useTimeTrackingStore(s => s.resetData);
+  const projects = useTimeTrackingStore(s => s.projects);
+  const tasks = useTimeTrackingStore(s => s.tasks);
+  const timeEntries = useTimeTrackingStore(s => s.timeEntries);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);

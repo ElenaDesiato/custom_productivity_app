@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useTimeTrackingStore } from '@/stores/timeTrackingStore';
 import { useFocusEffect } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -14,20 +14,20 @@ const PROJECT_COLORS = [
   '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
 ];
 
+
 export default function TasksScreen() {
   const colorScheme = useColorScheme();
-  const {
-    projects,
-    tasks,
-    addProject,
-    updateProject,
-    deleteProject,
-    addTask,
-    updateTask,
-    deleteTask,
-    getTasksByProject,
-    loadData,
-  } = useTimeTracking();
+  // Zustand selectors
+  const projects = useTimeTrackingStore(s => s.projects);
+  const tasks = useTimeTrackingStore(s => s.tasks);
+  const addProject = useTimeTrackingStore(s => s.addProject);
+  const updateProject = useTimeTrackingStore(s => s.updateProject);
+  const deleteProject = useTimeTrackingStore(s => s.deleteProject);
+  const addTask = useTimeTrackingStore(s => s.addTask);
+  const updateTask = useTimeTrackingStore(s => s.updateTask);
+  const deleteTask = useTimeTrackingStore(s => s.deleteTask);
+  const getTasksByProject = useTimeTrackingStore(s => s.getTasksByProject);
+  const loadData = useTimeTrackingStore(s => s.loadData);
 
   // Load data when screen comes into focus
   useFocusEffect(

@@ -2,13 +2,16 @@ import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useSelfCareAreas } from '@/hooks/useSelfCareAreas';
+import { useGoalsStore } from '@/stores/goalsStore';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ManageSelfCareAreasScreen() {
-  const { areas, addArea, updateArea, deleteArea } = useSelfCareAreas();
+  const areas = useGoalsStore((s) => s.areas);
+  const addArea = useGoalsStore((s) => s.addArea);
+  const updateArea = useGoalsStore((s) => s.updateArea);
+  const deleteArea = useGoalsStore((s) => s.deleteArea);
   const colorScheme = useColorScheme() ?? 'light';
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#2196F3');
@@ -55,7 +58,9 @@ export default function ManageSelfCareAreasScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete Area', 'Are you sure you want to delete this self-care area?', [
+    Alert.alert(
+      'Delete Area',
+      'Are you sure you want to delete this self-care area?\n\nAll goals assigned to this area will also be deleted.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => { await deleteArea(id); } },
     ]);

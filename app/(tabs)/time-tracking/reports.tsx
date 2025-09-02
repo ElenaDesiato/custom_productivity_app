@@ -5,7 +5,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useTimeTrackingStore } from '@/stores/timeTrackingStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
@@ -15,9 +15,15 @@ import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-nat
 type ReportPeriod = 'this-week' | 'last-week' | 'this-month' | 'last-month' | 'custom';
 type ReportType = 'by-project' | 'by-task' | 'by-day';
 
+
 export default function ReportsScreen() {
   const colorScheme = useColorScheme();
-  const { timeEntries, getTaskById, getProjectById, loadData } = useTimeTracking();
+  // Zustand selectors
+  const timeEntries = useTimeTrackingStore(s => s.timeEntries);
+  const getTaskById = useTimeTrackingStore(s => s.getTaskById);
+  const getProjectById = useTimeTrackingStore(s => s.getProjectById);
+  const loadData = useTimeTrackingStore(s => s.loadData);
+
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('this-week');
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('by-project');
   const [showCustomModal, setShowCustomModal] = useState(false);

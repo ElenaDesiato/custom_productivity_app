@@ -3,14 +3,20 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useTimeTrackingStore } from '@/stores/timeTrackingStore';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
+
 export default function TimeTrackingIndexScreen() {
   const colorScheme = useColorScheme();
-  const { timerState, timeEntries, projects, tasks, loadData } = useTimeTracking();
+  // Zustand selectors
+  const timerState = useTimeTrackingStore(s => s.timerState);
+  const timeEntries = useTimeTrackingStore(s => s.timeEntries);
+  const projects = useTimeTrackingStore(s => s.projects);
+  const tasks = useTimeTrackingStore(s => s.tasks);
+  const loadData = useTimeTrackingStore(s => s.loadData);
 
   useFocusEffect(
     React.useCallback(() => {

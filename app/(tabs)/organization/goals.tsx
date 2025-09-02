@@ -2,10 +2,9 @@
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import TrophyHalo from '@/components/TrophyHalo';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useGoals } from '@/hooks/useGoals';
-import { useSelfCareAreas } from '@/hooks/useSelfCareAreas';
-import { useUserSettings } from '@/hooks/useUserSettings';
+import { useGoalsStore } from '@/stores/goalsStore';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -30,7 +29,7 @@ function DebugPanel({ onUncompleteToday, onAdvanceDay, debugDayOffset }: DebugPa
     <View style={panelStyle}>
       <ThemedText style={{ fontWeight: 'bold', color: '#e65100', marginBottom: 8 }}>DEBUG PANEL</ThemedText>
       <TouchableOpacity onPress={onUncompleteToday} style={{ marginBottom: 8, backgroundColor: '#fff3e0', borderRadius: 6, padding: 8 }}>
-        <ThemedText style={{ color: '#e65100', fontWeight: 'bold' }}>Uncomplete A Goal</ThemedText>
+        <ThemedText style={{ color: '#e65100', fontWeight: 'bold' }}>Uncomplete All Goals</ThemedText>
       </TouchableOpacity>
       <TouchableOpacity onPress={onAdvanceDay} style={{ backgroundColor: '#fff3e0', borderRadius: 6, padding: 8 }}>
         <ThemedText style={{ color: '#e65100', fontWeight: 'bold' }}>Advance Day (Current Offset: {debugDayOffset})</ThemedText>
@@ -47,10 +46,14 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useFocusEffect } from '@react-navigation/native';
 
 function GoalsScreen() {
-  // (No fade overlay state)
   const windowHeight = Dimensions.get('window').height;
   const windowWidth = Dimensions.get('window').width;
-  const { goals, loading, addGoal, updateGoal, streak, reloadGoals } = useGoals();
+  const goals = useGoalsStore((s) => s.goals);
+  const loading = useGoalsStore((s) => s.loading);
+  const addGoal = useGoalsStore((s) => s.addGoal);
+  const updateGoal = useGoalsStore((s) => s.updateGoal);
+  const streak = useGoalsStore((s) => s.streak);
+  const reloadGoals = useGoalsStore((s) => s.reloadGoals);
   // Debug state: day offset for faking current day
   const [debugDayOffset, setDebugDayOffset] = useState(0);
 
@@ -102,8 +105,9 @@ function GoalsScreen() {
       reloadGoals && reloadGoals();
     }, [reloadGoals])
   );
-  const { areas } = useSelfCareAreas();
-  const { settings: userSettings, loading: settingsLoading } = useUserSettings();
+  const areas = useGoalsStore((s) => s.areas);
+  const userSettings = useGoalsStore((s) => s.userSettings);
+  const settingsLoading = useGoalsStore((s) => s.userSettingsLoading);
   const colorScheme = useColorScheme() ?? 'light';
   const styles = getStyles(colorScheme);
   const [modalVisible, setModalVisible] = useState(false);
@@ -142,7 +146,7 @@ function GoalsScreen() {
     '#000000', // black
   ];
   // Use dailyGoal from user settings if available
-  const dailyGoal = userSettings?.dailyGoal || 20;
+  const dailyGoal = userSettings?.dailyPointGoal || 20;
 
   // Track animating goals by id
   const [animatingGoalIds, setAnimatingGoalIds] = useState<string[]>([]);
@@ -159,13 +163,26 @@ function GoalsScreen() {
   const filteredGoals = [...goals]
     .filter(goal =>
       (!goal.repetitionDays || goal.repetitionDays.length === 0 || goal.repetitionDays.includes(todayIdx)) &&
-      !(goal.completedDates?.includes(today))
+      ( !goal.completedDates?.includes(today) || animatingGoalIds.includes(goal.id) )
     )
     .sort((a, b) => {
       const areaA = areas.find(area => area.id === a.areaId)?.name || '';
       const areaB = areas.find(area => area.id === b.areaId)?.name || '';
       return areaA.localeCompare(areaB);
     });
+
+
+  // Effect: Always clear confetti and animating state after a fixed duration
+  React.useEffect(() => {
+    if (confettiGoalId == null) return;
+    const timeout = setTimeout(() => {
+      setConfettiGoalId(null);
+      setAnimatingGoalIds(ids => ids.filter(id => id !== confettiGoalId));
+    }, 800); // match confetti duration
+    return () => clearTimeout(timeout);
+  }, [confettiGoalId]);
+
+  // (No longer needed: animatingGoalIds are cleared by confetti effect above)
   const complete = dailyPoints >= dailyGoal;
 
   return (
@@ -298,19 +315,9 @@ function GoalsScreen() {
           ListEmptyComponent={
             complete && filteredGoals.length === 0 ? (
               <View style={{ alignItems: 'center', marginTop: 32 }}>
-                <View style={{
-                  marginBottom: 8,
-                  borderRadius: 32,
-                  backgroundColor: 'linear-gradient(135deg, #FFD600 60%, #FFA000 100%)',
-                  padding: 8,
-                  shadowColor: '#FFD600',
-                  shadowOpacity: 0.5,
-                  shadowRadius: 12,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 8,
-                }}>
+                <TrophyHalo size={80} backgroundColor={Colors[colorScheme].background}>
                   <FontAwesome name="trophy" size={54} color="#FFD700" style={{ textShadowColor: '#FFA000', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 6 }} />
-                </View>
+                </TrophyHalo>
                 <ThemedText style={{ textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#388E3C' }}>
                   Congratulations! You’ve completed all your goals for today and hit your daily target! 🎉
                 </ThemedText>
@@ -335,11 +342,6 @@ function GoalsScreen() {
               await updateGoal({ ...item, completedDates: [...(item.completedDates || []), today] });
               setConfettiGoalId(item.id);
               setConfettiKey(k => k + 1);
-              // No fade overlay
-              setTimeout(() => {
-                setConfettiGoalId(null);
-                setAnimatingGoalIds(ids => ids.filter(id => id !== item.id));
-              }, 1500);
             };
             return (
               <View style={[
@@ -385,10 +387,6 @@ function GoalsScreen() {
   );
 }
 
-export default GoalsScreen;
-
-// Dynamic styles using colorScheme and Colors
-// Must be above GoalsScreen to avoid use-before-declaration
 const getStyles = (colorScheme: 'light' | 'dark') => StyleSheet.create({
   settingsButton: {
     position: 'absolute',
@@ -611,4 +609,7 @@ const getStyles = (colorScheme: 'light' | 'dark') => StyleSheet.create({
   checkButton: {
     padding: 4,
   },
+
 });
+
+export default GoalsScreen;

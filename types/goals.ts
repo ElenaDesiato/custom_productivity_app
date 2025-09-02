@@ -18,6 +18,7 @@ export interface Goal {
   color?: string;
   points: number;
   completedDates: string[]; // ISO date strings
+  createdDate?: string; // ISO date string, only for one-time goals
 }
 
 export interface UserSettings {

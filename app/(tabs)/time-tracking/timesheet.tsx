@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useTimeTracking } from '@/hooks/useTimeTracking';
+import { useTimeTrackingStore } from '@/stores/timeTrackingStore';
 import { TimeEntry } from '@/types/timeTracking';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
@@ -40,12 +40,22 @@ const INSPIRATIONAL_MESSAGES = [
   "Little by little, a little becomes a lot."
 ];
 
+
 export default function TimesheetScreen() {
   const colorScheme = useColorScheme();
-  const { timeEntries, projects, tasks, getTaskById, deleteTimeEntry, timerState, loadData, updateTimeEntry } = useTimeTracking();
+  // Zustand selectors
+  const timeEntries = useTimeTrackingStore(s => s.timeEntries);
+  const projects = useTimeTrackingStore(s => s.projects);
+  const tasks = useTimeTrackingStore(s => s.tasks);
+  const getTaskById = useTimeTrackingStore(s => s.getTaskById);
+  const deleteTimeEntry = useTimeTrackingStore(s => s.deleteTimeEntry);
+  const timerState = useTimeTrackingStore(s => s.timerState);
+  const loadData = useTimeTrackingStore(s => s.loadData);
+  const updateTimeEntry = useTimeTrackingStore(s => s.updateTimeEntry);
+
   const [selectedWeek, setSelectedWeek] = useState(0); // 0 = current week, -1 = last week, 1 = next week
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  
+
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
