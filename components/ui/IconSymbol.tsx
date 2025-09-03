@@ -22,7 +22,7 @@ const MAPPING = {
   "chevron.right": "chevron-right",
   "stopwatch": "timer",
   "checkmark.circle": "check-circle",
-  "calendar": "calendar-today",
+  "health": "favorite",
   "hourglass-empty": "hourglass-empty",
 } as unknown as IconMapping;
 

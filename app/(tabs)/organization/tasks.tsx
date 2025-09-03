@@ -485,7 +485,7 @@ export default function TasksScreen() {
                     })()
                   : 'Set due date (optional)'}
               </ThemedText>
-              <IconSymbol name="calendar" size={20} color={themeText} />
+              <IconSymbol name="health" size={20} color={themeText} />
             </TouchableOpacity>
             {showNewDueDatePicker && (
               <View style={{
@@ -573,7 +573,7 @@ export default function TasksScreen() {
                     })()
                   : 'Set due date (optional)'}
               </ThemedText>
-              <IconSymbol name="calendar" size={20} color={themeText} />
+              <IconSymbol name="health" size={20} color={themeText} />
             </TouchableOpacity>
             {showEditDueDatePicker && (
               <DateTimePicker

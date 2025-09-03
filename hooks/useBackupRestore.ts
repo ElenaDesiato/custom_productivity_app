@@ -22,6 +22,10 @@ const STORAGE_KEYS = {
   GOALS: 'goals',
   GOALS_SETTINGS: 'goals_settings',
   GOALS_AREAS: 'selfcare_areas',
+  // Calorie Counting
+  CALORIE_MEALS: 'calorie_meals',
+  CALORIE_FAVOURITES: 'calorie_favourites',
+  CALORIE_GOAL: 'calorie_goal',
 };
 
 export function useBackupRestore() {
@@ -39,6 +43,9 @@ export function useBackupRestore() {
         STORAGE_KEYS.GOALS,
         STORAGE_KEYS.GOALS_SETTINGS,
         STORAGE_KEYS.GOALS_AREAS,
+        STORAGE_KEYS.CALORIE_MEALS,
+        STORAGE_KEYS.CALORIE_FAVOURITES,
+        STORAGE_KEYS.CALORIE_GOAL,
       ]);
       // Restore default goals state (areas, settings)
       const DEFAULT_AREAS = [
@@ -78,7 +85,8 @@ export function useBackupRestore() {
         projectsData, tasksData, timeEntriesData, timerStateData,
         orgTasksData, orgListsData,
         listerData,
-        goalsData, goalsSettingsData, goalsAreasData
+        goalsData, goalsSettingsData, goalsAreasData,
+        calorieMealsData, calorieFavouritesData, calorieGoalData
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.PROJECTS),
         AsyncStorage.getItem(STORAGE_KEYS.TASKS),
@@ -90,6 +98,9 @@ export function useBackupRestore() {
         AsyncStorage.getItem(STORAGE_KEYS.GOALS),
         AsyncStorage.getItem(STORAGE_KEYS.GOALS_SETTINGS),
         AsyncStorage.getItem(STORAGE_KEYS.GOALS_AREAS),
+        AsyncStorage.getItem(STORAGE_KEYS.CALORIE_MEALS),
+        AsyncStorage.getItem(STORAGE_KEYS.CALORIE_FAVOURITES),
+        AsyncStorage.getItem(STORAGE_KEYS.CALORIE_GOAL),
       ]);
 
       let projects: Project[] = [];
@@ -102,18 +113,24 @@ export function useBackupRestore() {
       let goals: Goal[] = [];
       let goalsSettings: GoalsUserSettings | null = null;
       let goalsAreas: SelfCareArea[] = [];
+  let calorieMeals: any[] = [];
+  let calorieFavourites: any[] = [];
+  let calorieGoal: any = null;
 
       try {
-        projects = projectsData ? JSON.parse(projectsData) : [];
-        tasks = tasksData ? JSON.parse(tasksData) : [];
-        timeEntries = timeEntriesData ? JSON.parse(timeEntriesData) : [];
-        timerState = timerStateData ? JSON.parse(timerStateData) : null;
-        orgTasks = orgTasksData ? JSON.parse(orgTasksData) : [];
-        orgLists = orgListsData ? JSON.parse(orgListsData) : [];
-        lister = listerData ? JSON.parse(listerData) : null;
-        goals = goalsData ? JSON.parse(goalsData) : [];
-        goalsSettings = goalsSettingsData ? JSON.parse(goalsSettingsData) : null;
-        goalsAreas = goalsAreasData ? JSON.parse(goalsAreasData) : [];
+  projects = projectsData ? JSON.parse(projectsData) : [];
+  tasks = tasksData ? JSON.parse(tasksData) : [];
+  timeEntries = timeEntriesData ? JSON.parse(timeEntriesData) : [];
+  timerState = timerStateData ? JSON.parse(timerStateData) : null;
+  orgTasks = orgTasksData ? JSON.parse(orgTasksData) : [];
+  orgLists = orgListsData ? JSON.parse(orgListsData) : [];
+  lister = listerData ? JSON.parse(listerData) : null;
+  goals = goalsData ? JSON.parse(goalsData) : [];
+  goalsSettings = goalsSettingsData ? JSON.parse(goalsSettingsData) : null;
+  goalsAreas = goalsAreasData ? JSON.parse(goalsAreasData) : [];
+  calorieMeals = calorieMealsData ? JSON.parse(calorieMealsData) : [];
+  calorieFavourites = calorieFavouritesData ? JSON.parse(calorieFavouritesData) : [];
+  calorieGoal = calorieGoalData ? JSON.parse(calorieGoalData) : null;
       } catch (parseError) {
         console.error('Failed to parse stored data:', parseError);
         return { success: false, error: 'Failed to parse stored data' };
@@ -123,20 +140,24 @@ export function useBackupRestore() {
       const backupData = {
         version: '2.0',
         exportedAt: new Date().toISOString(),
-        // Time tracking
-        projects,
-        tasks,
-        timeEntries,
-        timerState,
-        // Organization
-        orgTasks,
-        orgLists,
-        // Lister
-        lister,
-        // Goals
-        goals,
-        goalsSettings,
-        goalsAreas,
+      // Time tracking
+      projects,
+      tasks,
+      timeEntries,
+      timerState,
+      // Organization
+      orgTasks,
+      orgLists,
+      // Lister
+      lister,
+      // Goals
+      goals,
+      goalsSettings,
+      goalsAreas,
+      // Calorie Counting
+      calorieMeals,
+      calorieFavourites,
+      calorieGoal,
       };
 
       // Save to file
@@ -257,6 +278,11 @@ export function useBackupRestore() {
       // Self-care areas: always use the imported array
       const goalsAreas: SelfCareArea[] = Array.isArray(backupData.goalsAreas) ? backupData.goalsAreas : [];
 
+      // Parse calorie counting data
+      const calorieMeals: any[] = Array.isArray(backupData.calorieMeals) ? backupData.calorieMeals : [];
+      const calorieFavourites: any[] = Array.isArray(backupData.calorieFavourites) ? backupData.calorieFavourites : [];
+      const calorieGoal: any = backupData.calorieGoal ?? null;
+
       // Validate imported data
       const validation = validateImportedData(projects, tasks, timeEntries, timerState);
       
@@ -278,6 +304,10 @@ export function useBackupRestore() {
         AsyncStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(goals)),
         AsyncStorage.setItem(STORAGE_KEYS.GOALS_SETTINGS, JSON.stringify(goalsSettings)),
         AsyncStorage.setItem(STORAGE_KEYS.GOALS_AREAS, JSON.stringify(goalsAreas)),
+        // Calorie Counting
+        AsyncStorage.setItem(STORAGE_KEYS.CALORIE_MEALS, JSON.stringify(calorieMeals)),
+        AsyncStorage.setItem(STORAGE_KEYS.CALORIE_FAVOURITES, JSON.stringify(calorieFavourites)),
+        AsyncStorage.setItem(STORAGE_KEYS.CALORIE_GOAL, JSON.stringify(calorieGoal)),
       ];
       if (timerState) {
         storagePromises.push(AsyncStorage.setItem(STORAGE_KEYS.TIMER_STATE, JSON.stringify(timerState)));
@@ -460,4 +490,4 @@ export function useBackupRestore() {
     importData,
     deleteAllData,
   };
-} 
+}

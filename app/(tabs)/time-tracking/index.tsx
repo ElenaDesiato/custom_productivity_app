@@ -54,7 +54,7 @@ export default function TimeTrackingIndexScreen() {
           {` time entr${timeEntries.length === 1 ? 'y' : 'ies'}`}
         </>
       ),
-      icon: 'calendar' as const,
+  icon: 'health' as const,
       route: '/time-tracking/timesheet' as const,
       color: '#43A047', // green 600
     },

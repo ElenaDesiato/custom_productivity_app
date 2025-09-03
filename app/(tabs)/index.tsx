@@ -131,10 +131,10 @@ export default function HomeScreen() {
       color: "#90CAF9", // blue 200
     },
     {
-      title: "",
-      icon: undefined,
-      route: undefined,
-      color: "#fff",
+      title: "Get calorie counting",
+      icon: "restaurant" as const,
+      route: "/health/calorieCounting" as const,
+      color: "#9C27B0", // purple
     },
   ];
 

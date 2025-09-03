@@ -524,7 +524,7 @@ export default function TimesheetScreen() {
 
           {timeEntries.length === 0 && (
             <View style={styles.emptyState}>
-              <IconSymbol name="calendar" size={48} color={Colors[colorScheme ?? 'light'].textSecondary} />
+              <IconSymbol name="health" size={48} color={Colors[colorScheme ?? 'light'].textSecondary} />
               <ThemedText type="secondary" style={styles.emptyTitle}>No Time Entries</ThemedText>
               <ThemedText type="secondary" style={styles.emptyText}>
                 Start tracking your time to see it here.

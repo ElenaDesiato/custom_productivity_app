@@ -53,12 +53,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="calendar"
+  name="health"
         options={{
-          title: "Calendar",
+          title: "Health",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="calendar" color={Colors[colorScheme ?? "light"].textSecondary} />
-          ), // Use a calendar icon
+            <IconSymbol size={28} name="health" color={Colors[colorScheme ?? "light"].textSecondary} />
+          ), // Use a health icon
         }}
       />
       <Tabs.Screen
