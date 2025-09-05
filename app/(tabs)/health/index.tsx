@@ -9,14 +9,20 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function HealthIndexScreen() {
   const colorScheme = useColorScheme();
-  // For now, just one navigation item: Calorie Counting
   const navigationItems = [
     {
       title: 'Calorie Counting',
       subtitle: 'Track your daily calorie intake',
       icon: 'restaurant',
       route: '/health/calorieCounting',
-      color: '#9C27B0', // purple 500
+      color: '#9C27B0', 
+    },
+    {
+      title: 'Weight Tracking',
+      subtitle: 'Log and monitor your weight over time',
+      icon: 'balance', 
+      route: '/health/weightTracking',
+      color: '#BA68C8', 
     },
   ];
 

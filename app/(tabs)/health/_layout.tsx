@@ -7,7 +7,7 @@ export default function HealthLayout() {
       <Stack.Screen
         name="index"
         options={{
-          title: 'Health Overview',
+          title: 'Health',
           headerShown: true,
         }}
       />
@@ -15,6 +15,13 @@ export default function HealthLayout() {
         name="calorieCounting"
         options={{
           title: 'Calorie Counting',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="weightTracking"
+        options={{
+          title: 'Weight Tracking',
           headerShown: true,
         }}
       />

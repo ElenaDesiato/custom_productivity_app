@@ -1,31 +1,30 @@
+import { saveWeightEntries } from '@/stores/weightStore';
 import { Goal, UserSettings as GoalsUserSettings, SelfCareArea } from '@/types/goals';
 import { ListerState } from '@/types/lister';
 import { Task as OrgTask, TaskList } from '@/types/organization';
 import { Project, TimeEntry, Task as TimeTask } from '@/types/timeTracking';
+import { cancelWeightReminders, scheduleDailyWeightReminder } from '@/utils/weightNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useCallback } from 'react';
-
+// Define all storage keys used in backup/restore
 const STORAGE_KEYS = {
   PROJECTS: 'timeTracking_projects',
   TASKS: 'timeTracking_tasks',
   TIME_ENTRIES: 'timeTracking_timeEntries',
   TIMER_STATE: 'timeTracking_timerState',
-  // Organization tab
   ORG_TASKS: 'organization_tasks',
   ORG_LISTS: 'organization_lists',
-  // Lister
-  LISTER: 'lister_state_v1',
-  // Goals
+  LISTER: 'lister_state',
   GOALS: 'goals',
   GOALS_SETTINGS: 'goals_settings',
-  GOALS_AREAS: 'selfcare_areas',
-  // Calorie Counting
+  GOALS_AREAS: 'goals_areas',
   CALORIE_MEALS: 'calorie_meals',
   CALORIE_FAVOURITES: 'calorie_favourites',
   CALORIE_GOAL: 'calorie_goal',
+  WEIGHT: 'weight_entries',
 };
 
 export function useBackupRestore() {
@@ -46,7 +45,14 @@ export function useBackupRestore() {
         STORAGE_KEYS.CALORIE_MEALS,
         STORAGE_KEYS.CALORIE_FAVOURITES,
         STORAGE_KEYS.CALORIE_GOAL,
+        STORAGE_KEYS.WEIGHT,
+        'weight_reminder_enabled',
+        'weight_reminder_time',
       ]);
+      // Cancel weight reminders and reset time
+      await cancelWeightReminders();
+      await AsyncStorage.setItem('weight_reminder_enabled', 'false');
+      await AsyncStorage.setItem('weight_reminder_time', JSON.stringify({ hour: 8, minute: 0 }));
       // Restore default goals state (areas, settings)
       const DEFAULT_AREAS = [
         { id: 'movement', name: 'Movement', icon: 'directions-run', color: '#4CAF50' },
@@ -79,14 +85,14 @@ export function useBackupRestore() {
 
   const exportData = useCallback(async () => {
     try {
-
       // Get all data from AsyncStorage
       const [
         projectsData, tasksData, timeEntriesData, timerStateData,
         orgTasksData, orgListsData,
         listerData,
         goalsData, goalsSettingsData, goalsAreasData,
-        calorieMealsData, calorieFavouritesData, calorieGoalData
+        calorieMealsData, calorieFavouritesData, calorieGoalData,
+        weightData
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.PROJECTS),
         AsyncStorage.getItem(STORAGE_KEYS.TASKS),
@@ -101,7 +107,12 @@ export function useBackupRestore() {
         AsyncStorage.getItem(STORAGE_KEYS.CALORIE_MEALS),
         AsyncStorage.getItem(STORAGE_KEYS.CALORIE_FAVOURITES),
         AsyncStorage.getItem(STORAGE_KEYS.CALORIE_GOAL),
+        AsyncStorage.getItem(STORAGE_KEYS.WEIGHT),
       ]);
+
+      // Always read latest reminder state directly before backup
+      const notifEnabledData = await AsyncStorage.getItem('weight_reminder_enabled');
+      const notifTimeData = await AsyncStorage.getItem('weight_reminder_time');
 
       let projects: Project[] = [];
       let tasks: TimeTask[] = [];
@@ -113,31 +124,44 @@ export function useBackupRestore() {
       let goals: Goal[] = [];
       let goalsSettings: GoalsUserSettings | null = null;
       let goalsAreas: SelfCareArea[] = [];
-  let calorieMeals: any[] = [];
-  let calorieFavourites: any[] = [];
-  let calorieGoal: any = null;
+      let calorieMeals: any[] = [];
+      let calorieFavourites: any[] = [];
+      let calorieGoal: any = null;
+      let weightEntries: any[] = [];
+      let notifEnabled: boolean = false;
+      let notifTime: { hour: number, minute: number } = { hour: 8, minute: 0 };
 
       try {
-  projects = projectsData ? JSON.parse(projectsData) : [];
-  tasks = tasksData ? JSON.parse(tasksData) : [];
-  timeEntries = timeEntriesData ? JSON.parse(timeEntriesData) : [];
-  timerState = timerStateData ? JSON.parse(timerStateData) : null;
-  orgTasks = orgTasksData ? JSON.parse(orgTasksData) : [];
-  orgLists = orgListsData ? JSON.parse(orgListsData) : [];
-  lister = listerData ? JSON.parse(listerData) : null;
-  goals = goalsData ? JSON.parse(goalsData) : [];
-  goalsSettings = goalsSettingsData ? JSON.parse(goalsSettingsData) : null;
-  goalsAreas = goalsAreasData ? JSON.parse(goalsAreasData) : [];
-  calorieMeals = calorieMealsData ? JSON.parse(calorieMealsData) : [];
-  calorieFavourites = calorieFavouritesData ? JSON.parse(calorieFavouritesData) : [];
-  calorieGoal = calorieGoalData ? JSON.parse(calorieGoalData) : null;
+        projects = projectsData ? JSON.parse(projectsData) : [];
+        tasks = tasksData ? JSON.parse(tasksData) : [];
+        timeEntries = timeEntriesData ? JSON.parse(timeEntriesData) : [];
+        timerState = timerStateData ? JSON.parse(timerStateData) : null;
+        orgTasks = orgTasksData ? JSON.parse(orgTasksData) : [];
+        orgLists = orgListsData ? JSON.parse(orgListsData) : [];
+        lister = listerData ? JSON.parse(listerData) : null;
+        goals = goalsData ? JSON.parse(goalsData) : [];
+        goalsSettings = goalsSettingsData ? JSON.parse(goalsSettingsData) : null;
+        goalsAreas = goalsAreasData ? JSON.parse(goalsAreasData) : [];
+        calorieMeals = calorieMealsData ? JSON.parse(calorieMealsData) : [];
+        calorieFavourites = calorieFavouritesData ? JSON.parse(calorieFavouritesData) : [];
+        calorieGoal = calorieGoalData ? JSON.parse(calorieGoalData) : null;
+        weightEntries = weightData ? JSON.parse(weightData) : [];
+        notifEnabled = notifEnabledData === 'true';
+        if (notifTimeData) {
+          try {
+            const parsed = JSON.parse(notifTimeData);
+            if (typeof parsed.hour === 'number' && typeof parsed.minute === 'number') {
+              notifTime = parsed;
+            }
+          } catch {}
+        }
       } catch (parseError) {
         console.error('Failed to parse stored data:', parseError);
         return { success: false, error: 'Failed to parse stored data' };
       }
 
       // Create backup object
-      const backupData = {
+  const backupData = {
         version: '2.0',
         exportedAt: new Date().toISOString(),
       // Time tracking
@@ -158,6 +182,11 @@ export function useBackupRestore() {
       calorieMeals,
       calorieFavourites,
       calorieGoal,
+        weightEntries,
+        weightReminder: {
+          enabled: notifEnabled,
+          time: notifTime,
+        },
       };
 
       // Save to file
@@ -218,14 +247,14 @@ export function useBackupRestore() {
         !('lister' in backupData) ||
         !('goals' in backupData) ||
         !('goalsSettings' in backupData) ||
-        !('goalsAreas' in backupData)
+        !('goalsAreas' in backupData) ||
+        !('weightEntries' in backupData) ||
+        !('weightReminder' in backupData)
       ) {
         return { success: false, error: 'Invalid backup file format (missing required fields)' };
       }
 
-
       // Parse and convert date fields
-
       const projects: Project[] = Array.isArray(backupData.projects)
         ? backupData.projects.map((p: any) => ({
             ...p,
@@ -255,6 +284,7 @@ export function useBackupRestore() {
           }))
         : [];
 
+
       let timerState = backupData.timerState || null;
       if (timerState && timerState.startTime) {
         timerState = { ...timerState, startTime: new Date(timerState.startTime) };
@@ -283,8 +313,45 @@ export function useBackupRestore() {
       const calorieFavourites: any[] = Array.isArray(backupData.calorieFavourites) ? backupData.calorieFavourites : [];
       const calorieGoal: any = backupData.calorieGoal ?? null;
 
+
+      // Parse weight entries
+      const weightEntries: any[] = Array.isArray(backupData.weightEntries) ? backupData.weightEntries : [];
+      // Parse reminder state
+      let notifEnabled = false;
+      let notifTime = { hour: 8, minute: 0 };
+      if (backupData.weightReminder) {
+        notifEnabled = !!backupData.weightReminder.enabled;
+        if (
+          backupData.weightReminder.time &&
+          typeof backupData.weightReminder.time.hour === 'number' &&
+          typeof backupData.weightReminder.time.minute === 'number'
+        ) {
+          notifTime = backupData.weightReminder.time;
+        }
+      }
+
       // Validate imported data
       const validation = validateImportedData(projects, tasks, timeEntries, timerState);
+      if (validation.errors.length > 0) {
+        return { 
+          success: false, 
+          error: `Data validation failed: ${validation.errors.join(', ')}` 
+        };
+      }
+
+  // Use store logic for weights
+  await saveWeightEntries(weightEntries);
+  // Restore reminder state
+  await AsyncStorage.setItem('weight_reminder_enabled', notifEnabled ? 'true' : 'false');
+  await AsyncStorage.setItem('weight_reminder_time', JSON.stringify(notifTime));
+  if (notifEnabled) {
+    await scheduleDailyWeightReminder(notifTime.hour, notifTime.minute);
+  } else {
+    await cancelWeightReminders();
+  }
+
+      // Use store logic for weights
+      await saveWeightEntries(weightEntries);
       
       if (validation.errors.length > 0) {
         return { 
@@ -294,7 +361,7 @@ export function useBackupRestore() {
       }
 
       // Save to AsyncStorage (all tabs)
-      const storagePromises = [
+  const storagePromises = [
         AsyncStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects)),
         AsyncStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks)),
         AsyncStorage.setItem(STORAGE_KEYS.TIME_ENTRIES, JSON.stringify(timeEntries)),
@@ -308,7 +375,9 @@ export function useBackupRestore() {
         AsyncStorage.setItem(STORAGE_KEYS.CALORIE_MEALS, JSON.stringify(calorieMeals)),
         AsyncStorage.setItem(STORAGE_KEYS.CALORIE_FAVOURITES, JSON.stringify(calorieFavourites)),
         AsyncStorage.setItem(STORAGE_KEYS.CALORIE_GOAL, JSON.stringify(calorieGoal)),
-      ];
+  ];
+  // Use store logic for weights
+  await saveWeightEntries(weightEntries);
       if (timerState) {
         storagePromises.push(AsyncStorage.setItem(STORAGE_KEYS.TIMER_STATE, JSON.stringify(timerState)));
       }
