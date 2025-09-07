@@ -124,7 +124,6 @@ export default function CalorieCountingScreen() {
       case 'extreme-gain':
         goal += 1000;
         break;
-      // maintenance: no change
     }
     return Math.round(goal);
   }
@@ -257,7 +256,7 @@ export default function CalorieCountingScreen() {
       {/* Goal Questionnaire Dropdown */}
       <View style={styles.goalDropdownContainer}>
         <TouchableOpacity onPress={() => setGoalFormOpen(open => !open)} style={styles.goalDropdownHeader}>
-          <ThemedText style={styles.goalFormTitle}>Set Your Calories Goal</ThemedText>
+          <ThemedText style={[styles.goalFormTitle, { color: '#222' }]}>Set Your Calories Goal</ThemedText>
           <IconSymbol name={goalFormOpen ? 'expand-less' : 'expand-more'} size={20} color="#9C27B0" />
         </TouchableOpacity>
         {goalFormOpen && (
@@ -357,7 +356,13 @@ export default function CalorieCountingScreen() {
                   <TouchableOpacity onPress={() => handleDeleteMeal(item.id)}>
                     <IconSymbol name="delete" size={20} color="#9C27B0" />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleAddFavourite(item)}>
+                  <TouchableOpacity onPress={() => {
+                    if (favourites.some(f => f.id === item.id)) {
+                      handleRemoveFavourite(item.id);
+                    } else {
+                      handleAddFavourite(item);
+                    }
+                  }}>
                     <IconSymbol name="star" size={20} color={favourites.some(f => f.id === item.id) ? '#FFD600' : '#9C27B0'} />
                   </TouchableOpacity>
                 </View>
@@ -368,74 +373,85 @@ export default function CalorieCountingScreen() {
       </View>
       {/* Add/Edit Meal Modal */}
       <Modal visible={showAdd} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: Colors[colorScheme ?? 'light'].background }] }>
-            <TouchableOpacity style={styles.modalCloseX} onPress={() => { setShowAdd(false); setEditMeal(null); }}>
-                <IconSymbol name="close" size={28} color="#888" />
+        <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.2)' }] }>
+          <View style={[styles.modalContainer, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', padding: 24, borderRadius: 18, minWidth: 320, width: '90%' }] }>
+            <View style={styles.modalHeader}>
+              <ThemedText style={[styles.modalTitle, { color: '#fff', flex: 1, textAlign: 'center' }]}>{editMeal ? 'Edit Meal' : 'Add Meal'}</ThemedText>
+              <TouchableOpacity onPress={() => { setShowAdd(false); setEditMeal(null); }} style={styles.closeButton}>
+                <IconSymbol name="close" size={28} color="#fff" />
               </TouchableOpacity>
-              <ThemedText style={styles.modalTitle}>{editMeal ? 'Edit Meal' : 'Add Meal'}</ThemedText>
+            </View>
+            <View style={styles.modalContent}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', color: '#fff' }]}
                 value={input.description}
                 onChangeText={text => setInput({ ...input, description: text })}
                 placeholder="Description"
+                placeholderTextColor="#888"
               />
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', color: '#fff' }]}
                 value={input.grams}
                 onChangeText={text => setInput({ ...input, grams: text })}
                 placeholder="Grams"
                 keyboardType="numeric"
+                placeholderTextColor="#888"
               />
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', color: '#fff' }]}
                 value={input.caloriesPer100g}
                 onChangeText={text => setInput({ ...input, caloriesPer100g: text })}
                 placeholder="kcal/100g"
                 keyboardType="numeric"
+                placeholderTextColor="#888"
               />
-              {/* AI Estimation Option (currently unavailable) */}
               <View style={styles.aiOptionUnavailable}>
                 <ThemedText style={styles.aiOptionText}>Estimate meal with AI (coming soon)</ThemedText>
               </View>
               <TouchableOpacity style={styles.saveButton} onPress={handleAddMeal}>
                 <ThemedText style={styles.saveButtonText}>{editMeal ? 'Save' : 'Add'}</ThemedText>
               </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
       {/* Favourites Modal */}
       <Modal visible={showFavourites} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: Colors[colorScheme ?? 'light'].background }] }>
-            <TouchableOpacity style={styles.modalCloseX} onPress={() => setShowFavourites(false)}>
-              <IconSymbol name="close" size={28} color="#333" />
-            </TouchableOpacity>
-            <ThemedText style={styles.modalTitle}>Favourites</ThemedText>
-            {favourites.length === 0 ? (
-              <ThemedText style={styles.emptyText}>No favourites yet.</ThemedText>
-            ) : (
-              <FlatList
-                data={favourites}
-                keyExtractor={m => m.id}
-                renderItem={({ item }) => (
-                  <View style={styles.mealRow}>
-                    <View style={{ flex: 1 }}>
-                      <ThemedText style={styles.mealName}>{item.description}</ThemedText>
-                      <ThemedText type="secondary">{item.grams}g • {item.totalCalories} kcal</ThemedText>
+        <View style={[styles.favModalOverlay, { backgroundColor: 'transparent' }]}> 
+          <View style={[styles.favModalCard, colorScheme === 'dark' ? styles.favModalCardDark : styles.favModalCardLight] }>
+            <View style={styles.modalHeader}>
+              <ThemedText style={[styles.modalTitle, { color: '#9C27B0', flex: 1, textAlign: 'center', letterSpacing: 1.2, fontSize: 22 }]}>Favourites</ThemedText>
+              <TouchableOpacity onPress={() => setShowFavourites(false)} style={styles.closeButton}>
+                <IconSymbol name="close" size={28} color="#ccc" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ height: 1, backgroundColor: '#fff', marginBottom: 12, marginTop: 0 }} />
+            <View style={[styles.modalContent, { paddingTop: 0 }]}>
+              {favourites.length === 0 ? (
+                <ThemedText style={[styles.emptyText, { fontSize: 16, color: '#ccc', fontWeight: 'bold', marginTop: 32 }]}>No favourites yet.</ThemedText>
+              ) : (
+                <FlatList
+                  data={favourites}
+                  keyExtractor={(m, idx) => `${m.id}-${idx}`}
+                  renderItem={({ item }) => (
+                    <View style={styles.mealRow}>
+                      <View style={{ flex: 1 }}>
+                        <ThemedText style={styles.mealName}>{item.description}</ThemedText>
+                        <ThemedText type="secondary">{item.grams}g • {item.totalCalories} kcal</ThemedText>
+                      </View>
+                      <View style={styles.favMealIconRow}>
+                        <TouchableOpacity style={styles.addMealBtn} onPress={() => addMeal({ ...item, id: generateId(), date: getTodayStr() })}>
+                          <ThemedText style={styles.addMealBtnText}>Add Meal</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleRemoveFavourite(item.id)}>
+                          <IconSymbol name="delete" size={20} color="#9C27B0" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <View style={styles.favMealIconRow}>
-                      <TouchableOpacity style={styles.addMealBtn} onPress={() => addMeal({ ...item, id: generateId(), date: getTodayStr() })}>
-                        <ThemedText style={styles.addMealBtnText}>Add Meal</ThemedText>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleRemoveFavourite(item.id)}>
-                        <IconSymbol name="delete" size={20} color="#9C27B0" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-              />
-            )}
+                  )}
+                />
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -482,9 +498,12 @@ const styles = StyleSheet.create({
   mealRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#F5F5F5', borderRadius: 8, padding: 8 },
   mealName: { fontSize: 17, fontWeight: 'bold', color: '#9C27B0', marginBottom: 2 },
   mealIconRow: { flexDirection: 'row', alignItems: 'center', gap: 20, marginLeft: 16 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '90%', backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'stretch' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#9C27B0', marginBottom: 16, textAlign: 'center' },
+  modalOverlay: { flex: 1 },
+  modalContainer: { backgroundColor: '#fff', borderRadius: 18, padding: 16, minWidth: 320, width: '90%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  closeButton: { padding: 4, marginLeft: 8 },
+  modalContent: { alignItems: 'stretch' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#9C27B0', marginBottom: 0, textAlign: 'center' },
   saveButton: { backgroundColor: '#9C27B0', borderRadius: 8, padding: 12, alignItems: 'center', marginTop: 12 },
   saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   cancelButton: { backgroundColor: '#E1BEE7', borderRadius: 8, padding: 12, alignItems: 'center', marginTop: 8 },
@@ -497,4 +516,29 @@ const styles = StyleSheet.create({
   bottomGoalLabel: { fontSize: 16, color: '#9C27B0', marginRight: 8 },
   bottomGoalInput: { borderWidth: 1, borderColor: '#9C27B0', borderRadius: 8, padding: 8, width: 80, textAlign: 'center', backgroundColor: '#fff', fontSize: 16, color: '#9C27B0' },
   bottomGoalUnit: { fontSize: 16, color: '#9C27B0', marginLeft: 8 },
+  favModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(156,39,176,0.15)', // soft purple overlay
+  },
+  favModalCard: {
+    borderRadius: 22,
+    padding: 20,
+    minWidth: 320,
+    width: '92%',
+    shadowColor: '#9C27B0',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 12,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  favModalCardLight: {
+    backgroundColor: '#fff',
+  },
+  favModalCardDark: {
+    backgroundColor: '#22292f',
+  },
 });

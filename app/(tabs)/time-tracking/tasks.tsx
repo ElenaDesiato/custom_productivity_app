@@ -185,7 +185,7 @@ export default function TasksScreen() {
                     onPress={() => openProjectModal(project)}
                     style={styles.actionButton}
                   >
-                    <IconSymbol name="edit" size={16} color={Colors[colorScheme ?? 'light'].textSecondary} />
+                    <IconSymbol name="edit" size={16} color="#4CAF50" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleDeleteProject(project)}
@@ -212,7 +212,7 @@ export default function TasksScreen() {
                         onPress={() => openTaskModal(task)}
                         style={styles.actionButton}
                       >
-                        <IconSymbol name="edit" size={14} color={Colors[colorScheme ?? 'light'].textSecondary} />
+                        <IconSymbol name="edit" size={14} color="#4CAF50" />
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleDeleteTask(task)}
@@ -323,56 +323,6 @@ export default function TasksScreen() {
                 placeholderTextColor={colorScheme === 'dark' ? '#888' : '#888'}
                 autoFocus
               />
-              {editingTask && (
-                <>
-                  <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Task color (optional):</ThemedText>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                    <TaskColorIndicator
-                      projectColor={projects.find(p => p.id === editingTask.projectId)?.color || PROJECT_COLORS[0]}
-                      taskColor={selectedTaskColor}
-                      size={24}
-                    />
-                    <ThemedText type="secondary" style={{ marginLeft: 12, fontSize: 14 }}>
-                      {selectedTaskColor ? 'Custom color' : 'Project color'}
-                    </ThemedText>
-                  </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
-                    <TouchableOpacity
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
-                        backgroundColor: 'transparent',
-                        marginRight: 8,
-                        marginBottom: 8,
-                        borderWidth: !selectedTaskColor ? 3 : 1,
-                        borderColor: !selectedTaskColor ? '#4CAF50' : '#ccc',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      onPress={() => setSelectedTaskColor(undefined)}
-                    >
-                      <ThemedText style={{ fontSize: 8, color: colorScheme === 'dark' ? '#fff' : '#222', textAlign: 'center', lineHeight: 28 }}>N/A</ThemedText>
-                    </TouchableOpacity>
-                    {PROJECT_COLORS.map((color) => (
-                      <TouchableOpacity
-                        key={color}
-                        onPress={() => setSelectedTaskColor(color)}
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 14,
-                          backgroundColor: color,
-                          marginRight: 8,
-                          marginBottom: 8,
-                          borderWidth: selectedTaskColor === color ? 3 : 1,
-                          borderColor: selectedTaskColor === color ? '#4CAF50' : '#ccc',
-                        }}
-                      />
-                    ))}
-                  </View>
-                </>
-              )}
               {!editingTask && (
                 <>
                   <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Select project:</ThemedText>
@@ -397,56 +347,52 @@ export default function TasksScreen() {
                   </ScrollView>
                 </>
               )}
-              {!editingTask && (
-                <>
-                  <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Task color (optional):</ThemedText>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                    <TaskColorIndicator
-                      projectColor={selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.color || PROJECT_COLORS[0] : '#000000'}
-                      taskColor={selectedTaskColor}
-                      size={24}
-                    />
-                    <ThemedText style={{ marginLeft: 12, fontSize: 14 }}>
-                      {selectedTaskColor ? 'Custom color' : 'Project color'}
-                    </ThemedText>
-                  </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
-                    <TouchableOpacity
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 14,
-                        backgroundColor: 'transparent',
-                        marginRight: 8,
-                        marginBottom: 8,
-                        borderWidth: !selectedTaskColor ? 3 : 1,
-                        borderColor: !selectedTaskColor ? '#4CAF50' : '#ccc',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                      onPress={() => setSelectedTaskColor(undefined)}
-                    >
-                      <ThemedText style={{ fontSize: 10, color: colorScheme === 'dark' ? '#fff' : '#222', textAlign: 'center', lineHeight: 28 }}>None</ThemedText>
-                    </TouchableOpacity>
-                    {PROJECT_COLORS.map((color) => (
-                      <TouchableOpacity
-                        key={color}
-                        onPress={() => setSelectedTaskColor(color)}
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: 14,
-                          backgroundColor: color,
-                          marginRight: 8,
-                          marginBottom: 8,
-                          borderWidth: selectedTaskColor === color ? 3 : 1,
-                          borderColor: selectedTaskColor === color ? '#4CAF50' : '#ccc',
-                        }}
-                      />
-                    ))}
-                  </View>
-                </>
-              )}
+              <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Task color (optional):</ThemedText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <TaskColorIndicator
+                  projectColor={editingTask ? (projects.find(p => p.id === editingTask.projectId)?.color || PROJECT_COLORS[0]) : (selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.color || PROJECT_COLORS[0] : '#000000')}
+                  taskColor={selectedTaskColor}
+                  size={24}
+                />
+                <ThemedText type="secondary" style={{ marginLeft: 12, fontSize: 14 }}>
+                  {selectedTaskColor ? 'Custom color' : 'Project color'}
+                </ThemedText>
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
+                <TouchableOpacity
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: 'transparent',
+                    marginRight: 8,
+                    marginBottom: 8,
+                    borderWidth: !selectedTaskColor ? 3 : 1,
+                    borderColor: !selectedTaskColor ? '#4CAF50' : '#ccc',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => setSelectedTaskColor(undefined)}
+                >
+                  <ThemedText style={{ fontSize: 10, color: colorScheme === 'dark' ? '#fff' : '#222', textAlign: 'center', lineHeight: 28 }}>{editingTask ? 'N/A' : 'None'}</ThemedText>
+                </TouchableOpacity>
+                {PROJECT_COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    onPress={() => setSelectedTaskColor(color)}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      backgroundColor: color,
+                      marginRight: 8,
+                      marginBottom: 8,
+                      borderWidth: selectedTaskColor === color ? 3 : 1,
+                      borderColor: selectedTaskColor === color ? '#4CAF50' : '#ccc',
+                    }}
+                  />
+                ))}
+              </View>
               <TouchableOpacity style={styles.saveButton} onPress={editingTask ? handleEditTask : handleCreateTask}>
                 <ThemedText style={styles.saveButtonText}>{editingTask ? 'Update Task' : 'Create Task'}</ThemedText>
               </TouchableOpacity>
@@ -578,13 +524,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 20,
+  paddingBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
@@ -594,7 +538,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   modalContent: {
-    padding: 20,
+  padding: 0,
   },
   input: {
     borderWidth: 1,
@@ -691,13 +635,13 @@ const styles = StyleSheet.create({
   },
   // Modal container style for rounded corners and padding
   modalContainer: {
-    width: '90%',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 8,
+  minWidth: 320,
+  borderRadius: 18,
+  padding: 20,
+  shadowColor: '#000',
+  shadowOpacity: 0.2,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 2 },
+  elevation: 8,
   },
 });

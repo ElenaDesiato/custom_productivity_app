@@ -93,32 +93,38 @@ export default function ManageSelfCareAreasScreen() {
         <View style={{
           position: 'absolute',
           top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(33,150,243,0.12)',
+          backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.2)',
           justifyContent: 'center',
           alignItems: 'center',
           zIndex: 1000,
         }}>
           <View style={{
+            minWidth: 320,
             width: '88%',
-            backgroundColor: Colors[colorScheme].background,
-            borderRadius: 16,
-            padding: 22,
+            backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff',
+            borderRadius: 18,
+            padding: 20,
             shadowColor: '#000',
             shadowOpacity: 0.18,
             shadowRadius: 8,
             elevation: 8,
           }}>
-            <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: Colors[colorScheme].tint }}>Add New Self-Care Area</ThemedText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <ThemedText style={{ fontSize: 18, fontWeight: 'bold', color: colorScheme === 'dark' ? '#fff' : '#222' }}>Add New Self-Care Area</ThemedText>
+              <TouchableOpacity onPress={() => { setAddModalVisible(false); setAddError(''); }} style={{ padding: 4 }}>
+                <IconSymbol name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#222'} />
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={{
-                backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9',
+                backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff',
                 borderWidth: 1.5,
-                borderColor: Colors[colorScheme].tint,
+                borderColor: '#2196F3',
                 borderRadius: 8,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
                 fontSize: 16,
-                color: Colors[colorScheme].text,
+                color: colorScheme === 'dark' ? '#fff' : '#222',
                 marginBottom: 8,
               }}
               placeholder="Area name"
@@ -153,9 +159,6 @@ export default function ManageSelfCareAreasScreen() {
               ))}
             </View>
             {/* Close X at top right */}
-            <TouchableOpacity onPress={() => { setAddModalVisible(false); setAddError(''); }} style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
-              <IconSymbol name="close" size={24} color={Colors[colorScheme].tint} />
-            </TouchableOpacity>
             {/* Centered Save button */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 18 }}>
               <TouchableOpacity onPress={handleAdd} style={{ backgroundColor: '#1976D2', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }}>
@@ -170,32 +173,38 @@ export default function ManageSelfCareAreasScreen() {
         <View style={{
           position: 'absolute',
           top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(33,150,243,0.12)',
+          backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.2)',
           justifyContent: 'center',
           alignItems: 'center',
           zIndex: 1000,
         }}>
           <View style={{
+            minWidth: 320,
             width: '88%',
-            backgroundColor: Colors[colorScheme].background,
-            borderRadius: 16,
-            padding: 22,
+            backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff',
+            borderRadius: 18,
+            padding: 20,
             shadowColor: '#000',
             shadowOpacity: 0.18,
             shadowRadius: 8,
             elevation: 8,
           }}>
-            <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: Colors[colorScheme].tint }}>Edit Self-Care Area</ThemedText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <ThemedText style={{ fontSize: 18, fontWeight: 'bold', color: colorScheme === 'dark' ? '#fff' : '#222' }}>Edit Self-Care Area</ThemedText>
+              <TouchableOpacity onPress={() => { setEditingId(null); setEditError(''); }} style={{ padding: 4 }}>
+                <IconSymbol name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#222'} />
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={{
-                backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9',
+                backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff',
                 borderWidth: 1.5,
-                borderColor: Colors[colorScheme].tint,
+                borderColor: '#2196F3',
                 borderRadius: 8,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
                 fontSize: 16,
-                color: Colors[colorScheme].text,
+                color: colorScheme === 'dark' ? '#fff' : '#222',
                 marginBottom: 8,
               }}
               placeholder="Area name"
@@ -230,9 +239,7 @@ export default function ManageSelfCareAreasScreen() {
               ))}
             </View>
             {/* Close X at top right */}
-            <TouchableOpacity onPress={() => { setEditingId(null); setEditError(''); }} style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
-              <IconSymbol name="close" size={24} color={Colors[colorScheme].tint} />
-            </TouchableOpacity>
+            {/* Centered Save button */}
             {/* Centered Save button */}
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 18 }}>
               <TouchableOpacity onPress={handleSaveEdit} style={{ backgroundColor: '#1976D2', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 }}>
@@ -264,7 +271,7 @@ export default function ManageSelfCareAreasScreen() {
             <IconSymbol name={item.icon} size={22} color={item.color} style={{ marginRight: 10 }} />
             <ThemedText type="secondary" style={{ flex: 1, color: Colors[colorScheme].textSecondary, fontSize: 16, fontWeight: '500' }}>{item.name}</ThemedText>
             <TouchableOpacity style={{ marginLeft: 8, marginRight: 16 }} onPress={() => handleEdit(item)}>
-              <IconSymbol name="edit" size={20} color={Colors[colorScheme].textSecondary} />
+              <IconSymbol name="edit" size={20} color="#1976D2" />
             </TouchableOpacity>
             <TouchableOpacity style={{ marginLeft: 8 }} onPress={() => handleDelete(item.id)}>
               <IconSymbol name="delete" size={20} color="#e53935" />

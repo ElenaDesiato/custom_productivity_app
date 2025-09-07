@@ -266,11 +266,11 @@ export default function WeightTrackingScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
           <ThemedText style={{ color: '#888', marginRight: 8 }}>Today's entry: {todayEntry.weight} kg</ThemedText>
           <TouchableOpacity onPress={() => { setEditModalVisible(true); setEditId(todayEntry.id); setEditWeight(todayEntry.weight.toString()); }}>
-            <IconSymbol name="edit" size={20} color="#BA68C8" />
+            <IconSymbol name="edit" size={20} color="#9C27B0" />
           </TouchableOpacity>
           <View style={{ width: 24 }} />
           <TouchableOpacity onPress={() => handleDelete(todayEntry.id)}>
-            <IconSymbol name="delete" size={20} color="#E57373" />
+            <IconSymbol name="delete" size={20} color="#C62828" />
           </TouchableOpacity>
         </View>
       )}
@@ -424,7 +424,7 @@ export default function WeightTrackingScreen() {
               <ThemedText style={[styles.entryWeight, { color: Colors[colorScheme ?? 'light'].text }]}>{item.weight} kg</ThemedText>
               {item.date === today && (
                 <TouchableOpacity onPress={() => { setEditModalVisible(true); setEditId(item.id); setEditWeight(item.weight.toString()); }}>
-                  <IconSymbol name="edit" size={18} color="#BA68C8" />
+                  <IconSymbol name="edit" size={18} color="#9C27B0" />
                 </TouchableOpacity>
               )}
             </View>
@@ -503,9 +503,34 @@ export default function WeightTrackingScreen() {
         </View>
       </Modal>
       <Modal visible={editModalVisible} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={[styles.modalContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background }] }>
-            {/* ...existing modal content for editing weight... */}
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.2)' }}>
+          <View style={{ backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', borderRadius: 18, padding: 24, minWidth: 320, width: '90%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <ThemedText style={{ fontSize: 20, fontWeight: 'bold', color: '#fff', flex: 1, textAlign: 'center' }}>Edit Weight</ThemedText>
+              <TouchableOpacity onPress={() => { setEditModalVisible(false); setEditWeight(''); setEditId(null); }} style={{ padding: 4, marginLeft: 8 }}>
+                <IconSymbol name="close" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: '#9C27B0', borderRadius: 8, padding: 10, marginTop: 8, marginBottom: 8, backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', color: '#fff', fontSize: 18 }}
+              value={editWeight}
+              onChangeText={setEditWeight}
+              placeholder="Weight (kg)"
+              placeholderTextColor="#888"
+              keyboardType="numeric"
+              autoFocus
+            />
+            <TouchableOpacity style={{ backgroundColor: '#9C27B0', borderRadius: 8, padding: 12, alignItems: 'center', marginTop: 12 }} onPress={() => {
+              if (editId && editWeight) {
+                const updatedEntries = entries.map(e => e.id === editId ? { ...e, weight: parseFloat(editWeight) } : e);
+                saveWeightEntries(updatedEntries).then(() => setEntries(updatedEntries));
+                setEditModalVisible(false);
+                setEditWeight('');
+                setEditId(null);
+              }
+            }}>
+              <ThemedText style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Save</ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

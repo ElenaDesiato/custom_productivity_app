@@ -24,6 +24,7 @@ const MAPPING = {
   "checkmark.circle": "check-circle",
   "health": "favorite",
   "hourglass-empty": "hourglass-empty",
+  "calendar": "calendar-today",
 } as unknown as IconMapping;
 
 /**

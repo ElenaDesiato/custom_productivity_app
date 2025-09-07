@@ -109,7 +109,7 @@ export default function AllGoalsManager() {
                   onPress={() => handleEdit(item)}
                   accessibilityLabel="Edit Goal"
                 >
-                  <Ionicons name="pencil" size={22} color={Colors[colorScheme].textSecondary} />
+                  <Ionicons name="pencil" size={22} color="#2196F3" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ padding: 6, marginLeft: 2 }}
@@ -130,12 +130,12 @@ export default function AllGoalsManager() {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalBg}>
-          <View style={[styles.modalContainer, { backgroundColor: Colors[colorScheme].background }] }>
+        <View style={[styles.modalBg, { justifyContent: 'center', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.2)' }] }>
+          <View style={[styles.modalContainer, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', padding: 20, borderRadius: 18, minWidth: 320 }] }>
             <View style={styles.modalHeader}>
-              <ThemedText style={[styles.modalTitle, { color: Colors[colorScheme].text }]}>New Goal</ThemedText>
+              <ThemedText style={[styles.modalTitle, { color: colorScheme === 'dark' ? '#fff' : '#222' }]}>{editingGoalId ? 'Edit Goal' : 'New Goal'}</ThemedText>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+                <Ionicons name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#222'} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalContent}>
@@ -143,7 +143,7 @@ export default function AllGoalsManager() {
                 placeholder="Goal description"
                 value={desc}
                 onChangeText={setDesc}
-                style={[styles.input, { color: Colors[colorScheme].text, borderColor: Colors[colorScheme].tint, backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9' }]}
+                style={[styles.input, { color: colorScheme === 'dark' ? '#fff' : '#222', borderColor: '#2196F3', backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff' }]}
                 placeholderTextColor={colorScheme === 'dark' ? '#888' : '#888'}
                 autoFocus
               />
@@ -224,7 +224,7 @@ export default function AllGoalsManager() {
                 placeholder="Points"
                 value={points}
                 onChangeText={setPoints}
-                style={[styles.input, { color: Colors[colorScheme].text, borderColor: Colors[colorScheme].tint, backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9' }]}
+                style={[styles.input, { color: colorScheme === 'dark' ? '#fff' : '#222', borderColor: '#2196F3', backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff' }]}
                 keyboardType="numeric"
                 placeholderTextColor={colorScheme === 'dark' ? '#888' : '#888'}
               />

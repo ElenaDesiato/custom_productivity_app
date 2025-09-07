@@ -49,9 +49,7 @@ export default function TimesheetScreen() {
   const tasks = useTimeTrackingStore(s => s.tasks);
   const getTaskById = useTimeTrackingStore(s => s.getTaskById);
   const deleteTimeEntry = useTimeTrackingStore(s => s.deleteTimeEntry);
-  // Subscribe to timerState and elapsedSeconds for live updates
   const timerState = useTimeTrackingStore(s => s.timerState);
-  const elapsedSeconds = useTimeTrackingStore(s => s.timerState.elapsedSeconds);
   const loadData = useTimeTrackingStore(s => s.loadData);
   const updateTimeEntry = useTimeTrackingStore(s => s.updateTimeEntry);
 
@@ -193,20 +191,7 @@ export default function TimesheetScreen() {
   // Calculate total hours for a date
   const getTotalHoursForDate = (date: Date) => {
     const entries = getTimeEntriesForDate(date);
-    // If there is a running timer pseudo-entry for this day, use the current elapsed duration
-    return entries.reduce((total, entry) => {
-      if (entry.id === 'running' && timerState.isRunning && timerState.startTime) {
-        // Calculate up-to-date duration for the running timer
-        const now = new Date();
-        const timerStart = new Date(timerState.startTime);
-        const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
-        const pseudoStart = timerStart > dayStart ? timerStart : dayStart;
-        const pseudoEnd = now;
-        const runningDuration = Math.floor((pseudoEnd.getTime() - pseudoStart.getTime()) / 1000);
-        return total + runningDuration;
-      }
-      return total + (entry.duration || 0);
-    }, 0) / 3600;
+    return entries.reduce((total, entry) => total + (entry.duration || 0), 0) / 3600;
   };
 
   // Calculate total hours for the week

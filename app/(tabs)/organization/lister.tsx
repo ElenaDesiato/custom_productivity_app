@@ -323,7 +323,7 @@ export default function ListerScreen() {
                       style={{ marginRight: 16, padding: 4 }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="pencil" size={18} color={colorScheme === 'dark' ? '#fff' : '#222'} />
+                      <Ionicons name="pencil" size={18} color="#1976D2" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleDeleteList(list)}
@@ -405,7 +405,7 @@ export default function ListerScreen() {
                     {!cat.isOther && !cat.isShoppingCart && (
                       <>
                         <TouchableOpacity onPress={() => openEditCategory(cat)} style={{ marginLeft: 12, padding: 4 }}>
-                          <Ionicons name="pencil" size={18} color={Colors[colorScheme ?? 'light'].textSecondary} />
+                          <Ionicons name="pencil" size={18} color="#1976D2" />
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleDeleteCategory(cat)} style={{ marginLeft: 24, padding: 4 }}>
                           <Ionicons name="trash" size={18} color="#e53935" />
