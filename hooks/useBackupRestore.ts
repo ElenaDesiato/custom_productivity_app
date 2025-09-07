@@ -271,16 +271,13 @@ export function useBackupRestore() {
 
       const timeEntries: TimeEntry[] = Array.isArray(backupData.timeEntries)
         ? backupData.timeEntries.map((e: any) => ({
-            ...e,
+            id: e.id,
+            taskId: e.taskId,
             startTime: e.startTime ? new Date(e.startTime) : undefined,
             endTime: e.endTime ? new Date(e.endTime) : undefined,
-            periods: e.periods
-              ? e.periods.map((period: any) => ({
-                  ...period,
-                  startTime: period.startTime ? new Date(period.startTime) : undefined,
-                  endTime: period.endTime ? new Date(period.endTime) : undefined,
-                }))
-              : undefined,
+            duration: typeof e.duration === 'number' ? e.duration : undefined,
+            notes: typeof e.notes === 'string' ? e.notes : undefined,
+            isRunning: typeof e.isRunning === 'boolean' ? e.isRunning : undefined,
           }))
         : [];
 
@@ -462,30 +459,6 @@ export function useBackupRestore() {
         warnings.push('Timer state references non-existent time entry');
       }
     }
-
-    // Validate periods in time entries
-    timeEntries.forEach(entry => {
-      if (entry.periods) {
-        if (!Array.isArray(entry.periods)) {
-          errors.push(`Time entry ${entry.id} has invalid periods format`);
-          return;
-        }
-        
-        entry.periods.forEach((period, index) => {
-          if (!period || typeof period !== 'object') {
-            errors.push(`Invalid period ${index} in time entry ${entry.id}`);
-            return;
-          }
-          
-          if (!(period.startTime instanceof Date) || isNaN(period.startTime.getTime())) {
-            errors.push(`Invalid start time in period ${index} of entry ${entry.id}`);
-          }
-          if (period.endTime && (!(period.endTime instanceof Date) || isNaN(period.endTime.getTime()))) {
-            errors.push(`Invalid end time in period ${index} of entry ${entry.id}`);
-          }
-        });
-      }
-    });
 
     // Validate data types and required fields
     projects.forEach((project, index) => {
