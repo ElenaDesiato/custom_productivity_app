@@ -12,8 +12,29 @@ import React, { useCallback, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function TimerScreen() {
+  // Subscribe directly to elapsedSeconds and isRunning for real-time updates
+  const elapsedSeconds = useTimeTrackingStore(s => s.timerState.elapsedSeconds);
+  const isRunning = useTimeTrackingStore(s => s.timerState.isRunning);
+
+  // Ensure ticking interval is running when timer screen is loaded
+  React.useEffect(() => {
+    if (!isRunning) return;
+    const interval = setInterval(() => {
+      // Increment elapsedSeconds in the store
+      useTimeTrackingStore.setState(state => {
+        if (!state.timerState.isRunning) return {};
+        return {
+          timerState: {
+            ...state.timerState,
+            elapsedSeconds: (state.timerState.elapsedSeconds || 0) + 1,
+          },
+        };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
   const colorScheme = useColorScheme();
-  const timerState = useTimeTrackingStore(s => s.timerState);
   const projects = useTimeTrackingStore(s => s.projects);
   const tasks = useTimeTrackingStore(s => s.tasks);
   const startTimer = useTimeTrackingStore(s => s.startTimer);
@@ -32,10 +53,10 @@ export default function TimerScreen() {
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
-  const [isRunning, setIsRunning] = useState(false);
   const [startPickerMode, setStartPickerMode] = useState<'date' | 'time'>('date');
   const [endPickerMode, setEndPickerMode] = useState<'date' | 'time'>('date');
   const [startNow, setStartNow] = useState(false);
+  const [continueRunning, setContinueRunning] = useState(false);
   const currentTask = getCurrentTask();
 
   // Load data when screen comes into focus
@@ -57,6 +78,8 @@ export default function TimerScreen() {
     setStartDate(now);
     setEndDate(new Date(now.getTime() + 3600000)); // 1 hour later
     setShowManualModal(true);
+  setStartNow(false);
+  setContinueRunning(false);
   };
 
   const handleManualEntrySubmit = async () => {
@@ -66,7 +89,7 @@ export default function TimerScreen() {
     }
 
     try {
-      if (!isRunning && !startNow && endDate <= startDate) {
+      if (!continueRunning && !startNow && endDate <= startDate) {
         Alert.alert('Invalid Time Range', 'End time must be after start time.');
         return;
       }
@@ -74,8 +97,8 @@ export default function TimerScreen() {
       if (startNow) {
         // Start timer now
         await startTimer(selectedTaskId);
-      } else if (isRunning) {
-        // For running entries, calculate duration up to now and start the timer
+      } else if (continueRunning) {
+        // Start timer at selected start time, running (ticks up every second)
         const now = new Date();
         const elapsedSeconds = Math.floor((now.getTime() - startDate.getTime()) / 1000);
         await startTimerWithCustomTime(selectedTaskId, startDate, elapsedSeconds);
@@ -84,7 +107,7 @@ export default function TimerScreen() {
         const duration = Math.floor((endDate.getTime() - startDate.getTime()) / 1000);
         await addTimeEntry(selectedTaskId, startDate, endDate, duration, false);
       }
-      
+
       // Reset form
       handleCloseModal();
     } catch (error) {
@@ -98,7 +121,6 @@ export default function TimerScreen() {
     // Reset dates to current time
     setStartDate(new Date());
     setEndDate(new Date());
-    setIsRunning(false);
     setStartNow(false);
     setShowStartPicker(false);
     setShowEndPicker(false);
@@ -195,9 +217,8 @@ export default function TimerScreen() {
       {/* Timer Display */}
       <View style={styles.timerContainer}>
         <ThemedText style={styles.timerText}>
-          {formatTime(timerState.elapsedSeconds)}
+          {formatTime(elapsedSeconds)}
         </ThemedText>
-        
         {currentTask && (
           <View style={styles.currentTaskContainer}>
             <TaskColorIndicator
@@ -217,44 +238,22 @@ export default function TimerScreen() {
 
       {/* Control Buttons */}
       <View style={styles.controlsContainer}>
-        {!timerState.isRunning ? (
-          currentTask ? (
-            // Timer is paused - show resume button
-            <TouchableOpacity
-              style={[styles.button, styles.startButton]}
-              onPress={resumeTimer}
-            >
-              <IconSymbol name="play-arrow" size={24} color="white" />
-              <ThemedText style={styles.buttonText}>Resume Timer</ThemedText>
-            </TouchableOpacity>
-          ) : (
-            // No timer running - show start timer button
-            <TouchableOpacity
-              style={[styles.button, styles.startButton]}
-              onPress={handleStartTimer}
-            >
-              <IconSymbol name="play-arrow" size={24} color="white" />
-              <ThemedText style={styles.buttonText}>Start Timer</ThemedText>
-            </TouchableOpacity>
-          )
+        {!isRunning ? (
+          <TouchableOpacity
+            style={[styles.button, styles.startButton]}
+            onPress={handleStartTimer}
+          >
+            <IconSymbol name="play-arrow" size={24} color="white" />
+            <ThemedText style={styles.buttonText}>Start Timer</ThemedText>
+          </TouchableOpacity>
         ) : (
-          <View style={styles.runningControls}>
-            <TouchableOpacity
-              style={[styles.button, styles.pauseButton]}
-              onPress={pauseTimer}
-            >
-              <IconSymbol name="pause" size={24} color="white" />
-              <ThemedText style={styles.buttonText}>Pause</ThemedText>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.button, styles.stopButton]}
-              onPress={handleStopTimer}
-            >
-              <IconSymbol name="stop" size={24} color="white" />
-              <ThemedText style={styles.buttonText}>Stop</ThemedText>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.button, styles.stopButton]}
+            onPress={handleStopTimer}
+          >
+            <IconSymbol name="stop" size={24} color="white" />
+            <ThemedText style={styles.buttonText}>Stop</ThemedText>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -262,147 +261,153 @@ export default function TimerScreen() {
       <Modal
         visible={showManualModal}
         animationType="slide"
-        presentationStyle="pageSheet"
+        transparent={true}
+        onRequestClose={handleCloseModal}
       >
-        <ThemedView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <ThemedText style={styles.modalTitle}>Start Timer</ThemedText>
-            <TouchableOpacity
-              onPress={handleCloseModal}
-              style={styles.closeButton}
-            >
-              <IconSymbol name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.taskListListLike}>
-            {projects.map(project => {
-              const projectTasks = tasks.filter(task => task.projectId === project.id);
-              if (projectTasks.length === 0) return null;
-
-              return (
-                <View key={project.id} style={styles.projectSectionListLike}>
-                  <View
-                    style={[
-                      styles.projectHeaderListLike,
-                      colorScheme === 'dark'
-                        ? { backgroundColor: 'rgba(255,255,255,0.13)' }
-                        : { backgroundColor: 'rgba(0,0,0,0.06)' },
-                    ]}
-                  >
-                    <View style={[styles.projectDotListLike, { backgroundColor: project.color }]} />
-                    <ThemedText type="secondary" style={[styles.projectNameListLike, { color: Colors[colorScheme ?? 'light'].text }]} numberOfLines={1} ellipsizeMode="tail">{project.name}</ThemedText>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          <ScrollView
+            contentContainerStyle={{ minHeight: '100%', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}
+            style={{ width: '100%' }}
+          >
+            <View style={[styles.modalCardCompact, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, borderRadius: 16, maxWidth: 420, width: '96%' }] }>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <ThemedText style={{ fontSize: 20, fontWeight: 'bold', color: '#fff', textAlign: 'left' }}>Start Timer</ThemedText>
+                <TouchableOpacity onPress={handleCloseModal} style={{ padding: 4 }}>
+                  <IconSymbol name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#22292f'} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ height: 1, backgroundColor: '#fff', opacity: 0.7, marginBottom: 16 }} />
+              {/* New Project/Task Picker */}
+              <ScrollView style={{ maxHeight: 400, borderRadius: 8, borderWidth: 1, backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', borderColor: Colors[colorScheme ?? 'light'].border, marginBottom: 8 }}>
+                {projects.map(project => {
+                  const projectTasks = tasks.filter(task => task.projectId === project.id);
+                  if (projectTasks.length === 0) return null;
+                  return (
+                    <View key={project.id} style={{ marginVertical: 8 }}>
+                      {/* Project Card - subtle left border, slight tint */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 0, backgroundColor: project.color + '12', borderLeftWidth: 4, borderLeftColor: project.color }}>
+                        <ThemedText style={{ fontSize: 15, fontWeight: '700', flex: 1, color: Colors[colorScheme ?? 'light'].text }}>{project.name}</ThemedText>
+                      </View>
+                      {/* Tasks List - indented, modal-matching bg */}
+                      <View style={{ marginLeft: 18, marginTop: 0 }}>
+                        {projectTasks.map(task => (
+                          <TouchableOpacity
+                            key={task.id}
+                            style={[{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              paddingVertical: 5,
+                              paddingHorizontal: 8,
+                              borderRadius: 6,
+                              marginVertical: 2,
+                              backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff',
+                              borderWidth: selectedTaskId === task.id ? 1 : 0,
+                              borderColor: selectedTaskId === task.id ? (task.color || project.color) : 'transparent',
+                            }]}
+                            onPress={() => setSelectedTaskId(task.id)}
+                          >
+                            <TaskColorIndicator projectColor={project.color} taskColor={task.color} size={10} />
+                            <ThemedText style={[{
+                              flex: 1,
+                              fontSize: 12,
+                              marginLeft: 8,
+                              color: selectedTaskId === task.id ? (task.color || project.color) : Colors[colorScheme ?? 'light'].text,
+                              fontWeight: selectedTaskId === task.id ? 'bold' : 'normal',
+                            }]}>{task.name}</ThemedText>
+                            {selectedTaskId === task.id && (
+                              <IconSymbol name="check-circle" size={12} color={task.color || project.color} />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              {/* Timer Options and Inputs */}
+              <View style={styles.optionsRowCompact}>
+                <TouchableOpacity
+                  style={styles.checkboxContainerCompact}
+                  onPress={() => {
+                    // Toggle Start Now independently
+                    if (startNow) {
+                      setStartNow(false);
+                    } else {
+                      setStartNow(true);
+                      setContinueRunning(true); // auto-check continue running when start now is checked
+                    }
+                  }}
+                >
+                  <View style={[styles.checkboxCompact, startNow && styles.checkboxCheckedCompact]}>
+                    {startNow && <IconSymbol name="check" size={14} color="white" />}
                   </View>
-                  {projectTasks.map(task => (
+                  <ThemedText style={styles.checkboxLabelCompact}>Start Now</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.checkboxContainerCompact}
+                  onPress={() => {
+                    // Toggle Continue Running independently
+                    if (continueRunning) {
+                      setContinueRunning(false);
+                      if (startNow) setStartNow(false);
+                    } else {
+                      setContinueRunning(true);
+                    }
+                  }}
+                >
+                  <View style={[styles.checkboxCompact, continueRunning && styles.checkboxCheckedCompact]}>
+                    {continueRunning && <IconSymbol name="check" size={14} color="white" />}
+                  </View>
+                  <ThemedText style={styles.checkboxLabelCompact}>Continue Running</ThemedText>
+                </TouchableOpacity>
+              </View>
+              {!startNow && (
+                <View style={styles.timePickersRowCompact}>
+                  <View className={"timePickerCompact"}>
+                    <ThemedText style={styles.formLabelCompact}>Start:</ThemedText>
                     <TouchableOpacity
-                      key={task.id}
-                      style={[
-                        styles.taskItemListLike,
-                        selectedTaskId === task.id && styles.taskItemSelectedListLike,
-                      ]}
-                      onPress={() => setSelectedTaskId(task.id)}
+                      style={[styles.textInputCompact, { borderColor: "#4CAF50" }]}
+                      onPress={() => {
+                        setStartPickerMode('date');
+                        setShowStartPicker(true);
+                      }}
+                      disabled={startNow}
                     >
-                      <TaskColorIndicator
-                        projectColor={project.color}
-                        taskColor={task.color}
-                        size={14}
-                      />
-                      <ThemedText
-                        type="secondary"
-                        style={[
-                          styles.taskNameListLike,
-                          selectedTaskId === task.id
-                            ? { color: Colors[colorScheme ?? 'light'].textSecondary }
-                            : { color: Colors[colorScheme ?? 'light'].text },
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {task.name}
-                      </ThemedText>
-                      {selectedTaskId === task.id && (
-                        <IconSymbol name="check-circle" size={16} color={Colors[colorScheme ?? 'light'].textSecondary} />
-                      )}
+                      <ThemedText style={styles.textInputValueCompact}>{startDate.toLocaleString()}</ThemedText>
                     </TouchableOpacity>
-                  ))}
+                  </View>
+                  {!continueRunning && (
+                    <View style={styles.timePickerCompact}>
+                      <ThemedText style={styles.formLabelCompact}>End:</ThemedText>
+                      <TouchableOpacity
+                        style={[styles.textInputCompact, { borderColor: "#4CAF50" }]}
+                        onPress={() => {
+                          setEndPickerMode('date');
+                          setShowEndPicker(true);
+                        }}
+                        disabled={startNow || continueRunning}
+                      >
+                        <ThemedText style={styles.textInputValueCompact}>{endDate.toLocaleString()}</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
-              );
-            })}
-          </ScrollView>
-
-          <View style={styles.manualEntryFormCompact}>
-            <ThemedText style={styles.formLabelCompact}>Task:</ThemedText>
-            <ThemedText style={styles.selectedTaskNameCompact}>{tasks.find(t => t.id === selectedTaskId)?.name || 'Select a task'}</ThemedText>
-
-            <View style={styles.optionsRowCompact}>
+              )}
               <TouchableOpacity
-                style={styles.checkboxContainerCompact}
-                onPress={() => {
-                  setStartNow(!startNow);
-                  if (!startNow) setIsRunning(true);
-                }}
+                style={[styles.buttonCompact, styles.startButtonCompact, styles.fullWidthButtonCompact]}
+                onPress={handleManualEntrySubmit}
               >
-                <View style={[styles.checkboxCompact, startNow && styles.checkboxCheckedCompact]}>
-                  {startNow && <IconSymbol name="check" size={14} color="white" />}
-                </View>
-                <ThemedText style={styles.checkboxLabelCompact}>Start Now</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.checkboxContainerCompact}
-                onPress={() => setIsRunning(!isRunning)}
-              >
-                <View style={[styles.checkboxCompact, isRunning && styles.checkboxCheckedCompact]}>
-                  {isRunning && <IconSymbol name="check" size={14} color="white" />}
-                </View>
-                <ThemedText style={styles.checkboxLabelCompact}>Continue Running</ThemedText>
+                <IconSymbol name="play-arrow" size={18} color="white" />
+                <ThemedText style={styles.buttonTextCompact}>
+                  {startNow ? 'Start Timer' : (isRunning ? 'Add Time Entry' : 'Add Time Entry')}
+                </ThemedText>
               </TouchableOpacity>
             </View>
-
-            {!startNow && (
-              <View style={styles.timePickersRowCompact}>
-                <View style={styles.timePickerCompact}>
-                  <ThemedText style={styles.formLabelCompact}>Start:</ThemedText>
-                  <TouchableOpacity
-                    style={styles.textInputCompact}
-                    onPress={() => {
-                      setStartPickerMode('date');
-                      setShowStartPicker(true);
-                    }}
-                  >
-                    <ThemedText style={styles.textInputValueCompact}>{startDate.toLocaleString()}</ThemedText>
-                  </TouchableOpacity>
-                </View>
-                {!isRunning && (
-                  <View style={styles.timePickerCompact}>
-                    <ThemedText style={styles.formLabelCompact}>End:</ThemedText>
-                    <TouchableOpacity
-                      style={styles.textInputCompact}
-                      onPress={() => {
-                        setEndPickerMode('date');
-                        setShowEndPicker(true);
-                      }}
-                    >
-                      <ThemedText style={styles.textInputValueCompact}>{endDate.toLocaleString()}</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[styles.buttonCompact, styles.startButtonCompact]}
-              onPress={handleManualEntrySubmit}
-            >
-              <IconSymbol name="play-arrow" size={18} color="white" />
-              <ThemedText style={styles.buttonTextCompact}>
-                {startNow ? 'Start Timer' : (isRunning ? 'Add Time Entry' : 'Add Time Entry')}
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        </ThemedView>
+          </ScrollView>
+        </View>
       </Modal>
 
-             {/* Date/Time Pickers */}
+      {/* Date/Time Pickers */}
        {showStartPicker && (
          <DateTimePicker
            value={startDate}
@@ -427,6 +432,23 @@ export default function TimerScreen() {
 }
 
 const styles = StyleSheet.create({
+  modalCardCompact: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  fullWidthButtonCompact: {
+    width: '100%',
+    alignSelf: 'center',
+    marginTop: 12,
+  },
   container: {
     flex: 1,
     padding: 20,
@@ -472,7 +494,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   controlsContainer: {
-    paddingBottom: 40,
+    paddingBottom: 10,
+    marginTop: -20,
   },
   button: {
     flexDirection: 'row',
@@ -704,6 +727,7 @@ const styles = StyleSheet.create({
   },
   textInputCompact: {
     height: 36,
+    minWidth: 180,
     borderColor: '#E0E0E0',
     borderWidth: 1,
     borderRadius: 6,

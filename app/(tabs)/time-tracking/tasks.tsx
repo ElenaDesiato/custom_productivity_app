@@ -10,8 +10,26 @@ import React, { useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 const PROJECT_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+  '#FF6B6B', // Red
+  '#4ECDC4', // Turquoise
+  '#45B7D1', // Blue
+  '#96CEB4', // Mint
+  '#FFEAA7', // Yellow
+  '#DDA0DD', // Lavender
+  '#98D8C8', // Aqua
+  '#F7DC6F', // Light Yellow
+  '#BB8FCE', // Purple
+  '#85C1E9', // Light Blue
+  '#FFB347', // Orange
+  '#B0E57C', // Light Green
+  '#FF69B4', // Pink
+  '#A569BD', // Deep Purple
+  '#34495E', // Dark Blue
+  '#00B894', // Teal
+  '#00CEC9', // Cyan
+  '#FD7272', // Coral
+  '#636e72', // Gray
+  '#fdcb6e', // Gold
 ];
 
 
@@ -241,209 +259,200 @@ export default function TasksScreen() {
       </TouchableOpacity>
 
       {/* Project Modal */}
-      <Modal
-        visible={showProjectModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <ThemedView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <ThemedText style={styles.modalTitle}>
-              {editingProject ? 'Edit Project' : 'New Project'}
-            </ThemedText>
-            <TouchableOpacity
-              onPress={() => setShowProjectModal(false)}
-              style={styles.closeButton}
-            >
-              <IconSymbol name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.modalContent}>
-            <TextInput
-              style={[styles.input, { color: Colors[colorScheme ?? 'light'].text }]}
-              placeholder="Project name"
-              value={newProjectName}
-              onChangeText={setNewProjectName}
-              placeholderTextColor={Colors[colorScheme ?? 'light'].text}
-            />
-
-            <ThemedText style={styles.colorLabel}>Choose color:</ThemedText>
-            <View style={styles.colorGrid}>
-              {PROJECT_COLORS.map(color => (
-                <TouchableOpacity
-                  key={color}
-                  style={[
-                    styles.colorOption,
-                    { backgroundColor: color },
-                    selectedColor === color && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
-                  ]}
-                  onPress={() => setSelectedColor(color)}
-                />
-              ))}
+      <Modal visible={showProjectModal} animationType="slide" transparent onRequestClose={() => setShowProjectModal(false)}>
+        <View style={styles.modalBg}>
+          <View style={[styles.modalContainer, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff' }] }>
+            <View style={styles.modalHeader}>
+              <ThemedText style={[styles.modalTitle, { color: colorScheme === 'dark' ? '#fff' : '#222' }]}>{editingProject ? 'Edit Project' : 'New Project'}</ThemedText>
+              <TouchableOpacity onPress={() => setShowProjectModal(false)} style={styles.closeButton}>
+                <IconSymbol name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#222'} />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={editingProject ? handleEditProject : handleCreateProject}
-            >
-              <ThemedText style={styles.saveButtonText}>
-                {editingProject ? 'Update Project' : 'Create Project'}
-              </ThemedText>
-            </TouchableOpacity>
+            <View style={styles.modalContent}>
+              <TextInput
+                style={[styles.input, { color: colorScheme === 'dark' ? '#fff' : '#222', borderColor: '#4CAF50', backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9' }]}
+                placeholder="Project name"
+                value={newProjectName}
+                onChangeText={setNewProjectName}
+                placeholderTextColor={colorScheme === 'dark' ? '#888' : '#888'}
+                autoFocus
+              />
+              <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Pick a color:</ThemedText>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
+                {PROJECT_COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    onPress={() => setSelectedColor(color)}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      backgroundColor: color,
+                      marginRight: 8,
+                      marginBottom: 8,
+                      borderWidth: selectedColor === color ? 3 : 1,
+                      borderColor: selectedColor === color ? '#4CAF50' : '#ccc',
+                    }}
+                  />
+                ))}
+              </View>
+              <TouchableOpacity style={styles.saveButton} onPress={editingProject ? handleEditProject : handleCreateProject}>
+                <ThemedText style={styles.saveButtonText}>{editingProject ? 'Update Project' : 'Create Project'}</ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
-        </ThemedView>
+        </View>
       </Modal>
 
       {/* Task Modal */}
-      <Modal
-        visible={showTaskModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <ThemedView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <ThemedText style={styles.modalTitle}>
-              {editingTask ? 'Edit Task' : 'New Task'}
-            </ThemedText>
-            <TouchableOpacity
-              onPress={() => setShowTaskModal(false)}
-              style={styles.closeButton}
-            >
-              <IconSymbol name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.modalContent}>
-            <TextInput
-              style={[styles.input, { color: Colors[colorScheme ?? 'light'].text }]}
-              placeholder="Task name"
-              value={newTaskName}
-              onChangeText={setNewTaskName}
-              placeholderTextColor={Colors[colorScheme ?? 'light'].text}
-            />
-
-            {editingTask && (
-              <>
-                <ThemedText style={styles.colorLabel}>Task color (optional):</ThemedText>
-                <View style={styles.colorPreview}>
-                  <TaskColorIndicator
-                    projectColor={projects.find(p => p.id === editingTask.projectId)?.color || PROJECT_COLORS[0]}
-                    taskColor={selectedTaskColor}
-                    size={24}
-                  />
-                  <ThemedText type="secondary" style={styles.colorPreviewText}>
-                    {selectedTaskColor ? 'Custom color' : 'Project color'}
-                  </ThemedText>
-                </View>
-                <View style={styles.colorGrid}>
-                  <TouchableOpacity
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: 'transparent' },
-                      !selectedTaskColor && { borderWidth: 2, borderColor: '#E0E0E0' },
-                      !selectedTaskColor && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
-                    ]}
-                    onPress={() => setSelectedTaskColor(undefined)}
-                  >
-                    <ThemedText style={[styles.colorOptionText, { color: Colors[colorScheme ?? 'light'].text }]}>None</ThemedText>
-                  </TouchableOpacity>
-                  {PROJECT_COLORS.map(color => (
-                    <TouchableOpacity
-                      key={color}
-                      style={[
-                        styles.colorOption,
-                        { backgroundColor: color },
-                        selectedTaskColor === color && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
-                      ]}
-                      onPress={() => setSelectedTaskColor(color)}
+      <Modal visible={showTaskModal} animationType="slide" transparent onRequestClose={() => setShowTaskModal(false)}>
+        <View style={styles.modalBg}>
+          <View style={[styles.modalContainer, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff' }] }>
+            <View style={styles.modalHeader}>
+              <ThemedText style={[styles.modalTitle, { color: colorScheme === 'dark' ? '#fff' : '#222' }]}>{editingTask ? 'Edit Task' : 'New Task'}</ThemedText>
+              <TouchableOpacity onPress={() => setShowTaskModal(false)} style={styles.closeButton}>
+                <IconSymbol name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#222'} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalContent}>
+              <TextInput
+                style={[styles.input, { color: colorScheme === 'dark' ? '#fff' : '#222', borderColor: '#4CAF50', backgroundColor: colorScheme === 'dark' ? '#22292f' : '#f9f9f9' }]}
+                placeholder="Task name"
+                value={newTaskName}
+                onChangeText={setNewTaskName}
+                placeholderTextColor={colorScheme === 'dark' ? '#888' : '#888'}
+                autoFocus
+              />
+              {editingTask && (
+                <>
+                  <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Task color (optional):</ThemedText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <TaskColorIndicator
+                      projectColor={projects.find(p => p.id === editingTask.projectId)?.color || PROJECT_COLORS[0]}
+                      taskColor={selectedTaskColor}
+                      size={24}
                     />
-                  ))}
-                </View>
-              </>
-            )}
-
-            {!editingTask && (
-              <>
-                <ThemedText style={[styles.projectLabel, { color: Colors[colorScheme ?? 'light'].text }]}>Select project:</ThemedText>
-                <ScrollView style={styles.projectSelector}>
-                  {projects.map(project => (
+                    <ThemedText type="secondary" style={{ marginLeft: 12, fontSize: 14 }}>
+                      {selectedTaskColor ? 'Custom color' : 'Project color'}
+                    </ThemedText>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
                     <TouchableOpacity
-                      key={project.id}
-                      style={[
-                        styles.projectOption,
-                        selectedProjectId === project.id && styles.selectedProject,
-                      ]}
-                      onPress={() => setSelectedProjectId(project.id)}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: 'transparent',
+                        marginRight: 8,
+                        marginBottom: 8,
+                        borderWidth: !selectedTaskColor ? 3 : 1,
+                        borderColor: !selectedTaskColor ? '#4CAF50' : '#ccc',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={() => setSelectedTaskColor(undefined)}
                     >
-                      <View style={[styles.projectDot, { backgroundColor: project.color }]} />
-                      <ThemedText
-                        type="default"
-                        style={[
-                          styles.projectOptionText,
-                          selectedProjectId === project.id && { color: Colors[colorScheme ?? 'light'].textSecondary },
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {project.name}
-                      </ThemedText>
+                      <ThemedText style={{ fontSize: 8, color: colorScheme === 'dark' ? '#fff' : '#222', textAlign: 'center', lineHeight: 28 }}>N/A</ThemedText>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-
-            {!editingTask && (
-              <>
-                <ThemedText style={styles.colorLabel}>Task color (optional):</ThemedText>
-                <View style={styles.colorPreview}>
-                  <TaskColorIndicator
-                    projectColor={selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.color || PROJECT_COLORS[0] : '#000000'}
-                    taskColor={selectedTaskColor}
-                    size={24}
-                  />
-                  <ThemedText style={styles.colorPreviewText}>
-                    {selectedTaskColor ? 'Custom color' : 'Project color'}
-                  </ThemedText>
-                </View>
-                <View style={styles.colorGrid}>
-                  <TouchableOpacity
-                    style={[
-                      styles.colorOption,
-                      { backgroundColor: 'transparent' },
-                      !selectedTaskColor && { borderWidth: 2, borderColor: '#E0E0E0' },
-                      !selectedTaskColor && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
-                    ]}
-                    onPress={() => setSelectedTaskColor(undefined)}
-                  >
-                    <ThemedText style={[styles.colorOptionText, { color: Colors[colorScheme ?? 'light'].text }]}>None</ThemedText>
-                  </TouchableOpacity>
-                  {PROJECT_COLORS.map(color => (
-                    <TouchableOpacity
-                      key={color}
-                      style={[
-                        styles.colorOption,
-                        { backgroundColor: color },
-                        selectedTaskColor === color && [styles.selectedColor, { borderColor: Colors[colorScheme ?? 'light'].tint }],
-                      ]}
-                      onPress={() => setSelectedTaskColor(color)}
+                    {PROJECT_COLORS.map((color) => (
+                      <TouchableOpacity
+                        key={color}
+                        onPress={() => setSelectedTaskColor(color)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          backgroundColor: color,
+                          marginRight: 8,
+                          marginBottom: 8,
+                          borderWidth: selectedTaskColor === color ? 3 : 1,
+                          borderColor: selectedTaskColor === color ? '#4CAF50' : '#ccc',
+                        }}
+                      />
+                    ))}
+                  </View>
+                </>
+              )}
+              {!editingTask && (
+                <>
+                  <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Select project:</ThemedText>
+                  <ScrollView style={styles.projectSelector}>
+                    {projects.map(project => (
+                      <TouchableOpacity
+                        key={project.id}
+                        style={[styles.projectOption, selectedProjectId === project.id && styles.selectedProject]}
+                        onPress={() => setSelectedProjectId(project.id)}
+                      >
+                        <View style={[styles.projectDot, { backgroundColor: project.color }]} />
+                        <ThemedText
+                          type="default"
+                          style={[styles.projectOptionText, selectedProjectId === project.id && { color: Colors[colorScheme ?? 'light'].textSecondary }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {project.name}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
+              {!editingTask && (
+                <>
+                  <ThemedText style={{ marginBottom: 8, color: colorScheme === 'dark' ? '#fff' : '#222' }}>Task color (optional):</ThemedText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <TaskColorIndicator
+                      projectColor={selectedProjectId ? projects.find(p => p.id === selectedProjectId)?.color || PROJECT_COLORS[0] : '#000000'}
+                      taskColor={selectedTaskColor}
+                      size={24}
                     />
-                  ))}
-                </View>
-              </>
-            )}
-
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={editingTask ? handleEditTask : handleCreateTask}
-            >
-              <ThemedText style={styles.saveButtonText}>
-                {editingTask ? 'Update Task' : 'Create Task'}
-              </ThemedText>
-            </TouchableOpacity>
+                    <ThemedText style={{ marginLeft: 12, fontSize: 14 }}>
+                      {selectedTaskColor ? 'Custom color' : 'Project color'}
+                    </ThemedText>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 }}>
+                    <TouchableOpacity
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: 'transparent',
+                        marginRight: 8,
+                        marginBottom: 8,
+                        borderWidth: !selectedTaskColor ? 3 : 1,
+                        borderColor: !selectedTaskColor ? '#4CAF50' : '#ccc',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={() => setSelectedTaskColor(undefined)}
+                    >
+                      <ThemedText style={{ fontSize: 10, color: colorScheme === 'dark' ? '#fff' : '#222', textAlign: 'center', lineHeight: 28 }}>None</ThemedText>
+                    </TouchableOpacity>
+                    {PROJECT_COLORS.map((color) => (
+                      <TouchableOpacity
+                        key={color}
+                        onPress={() => setSelectedTaskColor(color)}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          backgroundColor: color,
+                          marginRight: 8,
+                          marginBottom: 8,
+                          borderWidth: selectedTaskColor === color ? 3 : 1,
+                          borderColor: selectedTaskColor === color ? '#4CAF50' : '#ccc',
+                        }}
+                      />
+                    ))}
+                  </View>
+                </>
+              )}
+              <TouchableOpacity style={styles.saveButton} onPress={editingTask ? handleEditTask : handleCreateTask}>
+                <ThemedText style={styles.saveButtonText}>{editingTask ? 'Update Task' : 'Create Task'}</ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
-        </ThemedView>
+        </View>
       </Modal>
     </ThemedView>
   );
@@ -568,10 +577,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
-  modalContainer: {
-    flex: 1,
-    paddingTop: 60,
-  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -677,4 +682,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-}); 
+  // Modal background style for overlay
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Modal container style for rounded corners and padding
+  modalContainer: {
+    width: '90%',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 8,
+  },
+});

@@ -49,7 +49,9 @@ export default function TimesheetScreen() {
   const tasks = useTimeTrackingStore(s => s.tasks);
   const getTaskById = useTimeTrackingStore(s => s.getTaskById);
   const deleteTimeEntry = useTimeTrackingStore(s => s.deleteTimeEntry);
+  // Subscribe to timerState and elapsedSeconds for live updates
   const timerState = useTimeTrackingStore(s => s.timerState);
+  const elapsedSeconds = useTimeTrackingStore(s => s.timerState.elapsedSeconds);
   const loadData = useTimeTrackingStore(s => s.loadData);
   const updateTimeEntry = useTimeTrackingStore(s => s.updateTimeEntry);
 
@@ -147,10 +149,10 @@ export default function TimesheetScreen() {
       const endsToday = entryEnd && entryEnd >= dayStart && entryEnd <= dayEnd;
       // Entry spans the whole day (starts before and ends after)
       const spansToday = entryEnd && entryStart < dayStart && entryEnd > dayEnd;
-      // Entry is running or paused and started on this day (no end time yet)
-      const isActiveToday = (entry.isRunning || entry.isPaused) && startsToday;
+  // Entry is running and started on this day (no end time yet)
+  const isActiveToday = entry.isRunning && startsToday;
 
-      return startsToday || endsToday || spansToday || isActiveToday;
+  return startsToday || endsToday || spansToday || isActiveToday;
     });
 
     // Only inject running timer as pseudo-entry if there's no real running entry in the database
@@ -191,7 +193,20 @@ export default function TimesheetScreen() {
   // Calculate total hours for a date
   const getTotalHoursForDate = (date: Date) => {
     const entries = getTimeEntriesForDate(date);
-    return entries.reduce((total, entry) => total + (entry.duration || 0), 0) / 3600;
+    // If there is a running timer pseudo-entry for this day, use the current elapsed duration
+    return entries.reduce((total, entry) => {
+      if (entry.id === 'running' && timerState.isRunning && timerState.startTime) {
+        // Calculate up-to-date duration for the running timer
+        const now = new Date();
+        const timerStart = new Date(timerState.startTime);
+        const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
+        const pseudoStart = timerStart > dayStart ? timerStart : dayStart;
+        const pseudoEnd = now;
+        const runningDuration = Math.floor((pseudoEnd.getTime() - pseudoStart.getTime()) / 1000);
+        return total + runningDuration;
+      }
+      return total + (entry.duration || 0);
+    }, 0) / 3600;
   };
 
   // Calculate total hours for the week
@@ -338,92 +353,13 @@ export default function TimesheetScreen() {
 
   // Format time entry periods for display
   const formatTimeEntryPeriods = (entry: TimeEntry) => {
-    if (entry.id === 'running') {
+    if (entry.id === 'running' || entry.isRunning) {
       return `${new Date(entry.startTime).toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
       })} - Running`;
     }
-
-    // Handle running timers with periods (should show all periods, last one ending in "Running")
-    if (entry.isRunning && entry.periods) {
-      const periodStrings = entry.periods.map((period: { startTime: Date; endTime?: Date }, index: number) => {
-        const startStr = new Date(period.startTime).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        if (period.endTime) {
-          const endStr = new Date(period.endTime).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          return `${startStr} - ${endStr}`;
-        } else {
-          // Last period (currently running)
-          return `${startStr} - Running`;
-        }
-      });
-      return periodStrings.join(', ');
-    }
-
-    // Handle running timers without periods (fallback)
-    if (entry.isRunning) {
-      return `${new Date(entry.startTime).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })} - Running`;
-    }
-
-    if (entry.isPaused && entry.periods) {
-      // Format multiple periods with commas
-      const periodStrings = entry.periods.map((period: { startTime: Date; endTime?: Date }) => {
-        const startStr = new Date(period.startTime).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        if (period.endTime) {
-          const endStr = new Date(period.endTime).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          return `${startStr} - ${endStr}`;
-        } else {
-          return `${startStr} - Running`;
-        }
-      });
-      return periodStrings.join(', ');
-    }
-
-    // Handle paused timers without periods (fallback)
-    if (entry.isPaused) {
-      return `${new Date(entry.startTime).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })} - Running`;
-    }
-
-    // Handle completed timers with periods (show all periods)
-    if (entry.periods && entry.periods.length > 0) {
-      const periodStrings = entry.periods.map((period: { startTime: Date; endTime?: Date }) => {
-        const startStr = new Date(period.startTime).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        if (period.endTime) {
-          const endStr = new Date(period.endTime).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-          return `${startStr} - ${endStr}`;
-        } else {
-          // This shouldn't happen for completed entries, but handle it gracefully
-          return `${startStr} - Running`;
-        }
-      });
-      return periodStrings.join(', ');
-    }
-
-    // Regular completed entry (fallback for entries without periods)
+    // Completed entry
     return `${new Date(entry.startTime).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -596,21 +532,19 @@ export default function TimesheetScreen() {
                         {(entry.isRunning || entry.id === 'running') && (
                           <IconSymbol name="timer" size={16} color="#4CAF50" />
                         )}
-                        {entry.isPaused && (
-                          <IconSymbol name="pause" size={16} color="#FF9800" />
-                        )}
+                        {/* Pause feature removed: no isPaused */}
                         <ThemedText type="secondary" style={styles.entryDuration}>
                           {entry.isRunning ? 
                             formatTime(timerState.elapsedSeconds) : 
                             formatTime(entry.duration || 0)
                           }
                         </ThemedText>
-                        {entry.id !== 'running' && !entry.isPaused && (
+                        {entry.id !== 'running' && (
                           <TouchableOpacity
                             onPress={() => handleEditEntry(entry)}
                             style={styles.editButton}
                           >
-                            <IconSymbol name="edit" size={16} color="#2196F3" />
+                            <IconSymbol name="edit" size={16} color="#4CAF50" />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -620,7 +554,7 @@ export default function TimesheetScreen() {
                       <ThemedText type="secondary" style={styles.entryTimeText}>
                         {formatTimeEntryPeriods(entry)}
                       </ThemedText>
-                      {entry.id !== 'running' && !entry.isPaused && (
+                      {entry.id !== 'running' && (
                         <TouchableOpacity
                           onPress={() => deleteTimeEntry(entry.id)}
                           style={styles.deleteButton}
@@ -652,115 +586,104 @@ export default function TimesheetScreen() {
 
       {/* Edit Time Entry Modal */}
       <Modal
-        visible={showEditModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
+  visible={showEditModal}
+  animationType="fade"
+  transparent={true}
       >
-        <ThemedView style={styles.modalContainer}>
-          <View style={[styles.modalHeader, { borderBottomColor: Colors[colorScheme ?? 'light'].border }]}>
-            <ThemedText style={styles.modalTitle}>Edit Time Entry</ThemedText>
-            <TouchableOpacity
-              onPress={() => setShowEditModal(false)}
-              style={styles.closeButton}
-            >
-              <IconSymbol name="close" size={24} color={Colors[colorScheme ?? 'light'].text} />
-            </TouchableOpacity>
-          </View>
 
-          <ScrollView style={styles.modalContent}>
-            {/* Task Selection */}
-            <View style={styles.formSection}>
-              <ThemedText style={styles.formLabel}>Task</ThemedText>
-              <ScrollView style={[styles.taskList, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          <ScrollView contentContainerStyle={{ justifyContent: 'center', alignItems: 'center' }} style={{ width: '100%' }}>
+            <View style={[styles.modalCardCompact, { backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2, borderRadius: 16, maxWidth: 420, width: '96%' }] }>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <ThemedText style={{ fontSize: 20, fontWeight: 'bold', color: '#fff', textAlign: 'left' }}>Edit Time Entry</ThemedText>
+                <TouchableOpacity onPress={() => setShowEditModal(false)} style={{ padding: 4 }}>
+                  <IconSymbol name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#22292f'} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ height: 1, backgroundColor: '#fff', opacity: 0.7, marginBottom: 16 }} />
+              <ScrollView style={{ maxHeight: 400, borderRadius: 8, borderWidth: 1, backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff', borderColor: Colors[colorScheme ?? 'light'].border, marginBottom: 8 }}>
                 {projects.map(project => {
                   const projectTasks = tasks.filter(task => task.projectId === project.id);
                   if (projectTasks.length === 0) return null;
-
                   return (
-                    <View key={project.id} style={[styles.projectSection, { borderBottomColor: Colors[colorScheme ?? 'light'].border }]}>
-                      <View style={styles.projectHeader}>
-                        <View style={[styles.projectDot, { backgroundColor: project.color }]} />
-                        <ThemedText style={styles.projectName}>{project.name}</ThemedText>
+                    <View key={project.id} style={{ marginVertical: 8 }}>
+                      {/* Project Card - subtle left border, slight tint */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginBottom: 0, backgroundColor: project.color + '12', borderLeftWidth: 4, borderLeftColor: project.color }}>
+                        <ThemedText style={{ fontSize: 15, fontWeight: '700', flex: 1, color: Colors[colorScheme ?? 'light'].text }}>{project.name}</ThemedText>
                       </View>
-                      {projectTasks.map(task => (
-                        <TouchableOpacity
-                          key={task.id}
-                          style={[
-                            styles.taskItem,
-                            editTaskId === task.id && [styles.taskItemSelected, { backgroundColor: Colors[colorScheme ?? 'light'].tint + '20', borderColor: Colors[colorScheme ?? 'light'].tint }],
-                          ]}
-                          onPress={() => setEditTaskId(task.id)}
-                        >
-                          <TaskColorIndicator
-                            projectColor={project.color}
-                            taskColor={task.color}
-                            size={14}
-                          />
-                          <ThemedText
-                            style={[
-                              styles.taskName,
-                              editTaskId === task.id && [styles.taskNameSelected, { color: Colors[colorScheme ?? 'light'].tint }],
-                            ]}
+                      {/* Tasks List - indented, modal-matching bg, less green selection */}
+                      <View style={{ marginLeft: 18, marginTop: 0 }}>
+                        {projectTasks.map(task => (
+                          <TouchableOpacity
+                            key={task.id}
+                            style={[{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              paddingVertical: 5,
+                              paddingHorizontal: 8,
+                              borderRadius: 6,
+                              marginVertical: 2,
+                              backgroundColor: colorScheme === 'dark' ? '#22292f' : '#fff',
+                              borderWidth: editTaskId === task.id ? 1 : 0,
+                              borderColor: editTaskId === task.id ? (task.color || project.color) : 'transparent',
+                            }]}
+                            onPress={() => setEditTaskId(task.id)}
                           >
-                            {task.name}
-                          </ThemedText>
-                          {editTaskId === task.id && (
-                            <IconSymbol name="check-circle" size={16} color={Colors[colorScheme ?? 'light'].tint} />
-                          )}
-                        </TouchableOpacity>
-                      ))}
+                            <TaskColorIndicator projectColor={project.color} taskColor={task.color} size={10} />
+                            <ThemedText style={[{
+                              flex: 1,
+                              fontSize: 12,
+                              marginLeft: 8,
+                              color: editTaskId === task.id ? (task.color || project.color) : Colors[colorScheme ?? 'light'].text,
+                              fontWeight: editTaskId === task.id ? 'bold' : 'normal',
+                            }]}>{task.name}</ThemedText>
+                            {editTaskId === task.id && (
+                              <IconSymbol name="check-circle" size={12} color={task.color || project.color} />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </View>
                   );
                 })}
               </ScrollView>
-            </View>
-
-            {/* Time Selection */}
-            <View style={styles.formSection}>
-              <ThemedText style={styles.formLabel}>Time</ThemedText>
-              
-              <View style={styles.timeInputContainer}>
-                <ThemedText style={styles.timeLabel}>Start Time</ThemedText>
-                <TouchableOpacity
-                  style={[styles.timeInput, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}
-                  onPress={() => {
-                    setShowStartPicker(true);
-                    setStartPickerMode('date');
-                  }}
-                >
-                  <ThemedText style={[styles.timeInputValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-                    {editStartDate.toLocaleString()}
-                  </ThemedText>
-                </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ fontSize: 13, fontWeight: '500', marginBottom: 2 }}>Start:</ThemedText>
+                  <TouchableOpacity
+                    style={[{ height: 36, borderColor: '#4CAF50', borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, justifyContent: 'center', marginBottom: 0 }]}
+                    onPress={() => {
+                      setShowStartPicker(true);
+                      setStartPickerMode('date');
+                    }}
+                  >
+                    <ThemedText style={{ fontSize: 14 }}>{editStartDate.toLocaleString()}</ThemedText>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ fontSize: 13, fontWeight: '500', marginBottom: 2 }}>End:</ThemedText>
+                  <TouchableOpacity
+                    style={[{ height: 36, borderColor: '#4CAF50', borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, justifyContent: 'center', marginBottom: 0 }]}
+                    onPress={() => {
+                      setShowEndPicker(true);
+                      setEndPickerMode('date');
+                    }}
+                  >
+                    <ThemedText style={{ fontSize: 14 }}>{editEndDate.toLocaleString()}</ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
-
-              <View style={styles.timeInputContainer}>
-                <ThemedText style={styles.timeLabel}>End Time</ThemedText>
-                <TouchableOpacity
-                  style={[styles.timeInput, { backgroundColor: Colors[colorScheme ?? 'light'].background, borderColor: Colors[colorScheme ?? 'light'].border }]}
-                  onPress={() => {
-                    setShowEndPicker(true);
-                    setEndPickerMode('date');
-                  }}
-                >
-                  <ThemedText style={[styles.timeInputValue, { color: Colors[colorScheme ?? 'light'].text }]}>
-                    {editEndDate.toLocaleString()}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 8, marginTop: 8, alignSelf: 'flex-end', backgroundColor: '#4CAF50', width: '100%' }]}
+                onPress={handleEditSubmit}
+              >
+                <IconSymbol name="play-arrow" size={18} color="white" />
+                <ThemedText style={{ color: 'white', fontSize: 14, fontWeight: '600', marginLeft: 6 }}>Save Changes</ThemedText>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
-              onPress={handleEditSubmit}
-            >
-              <ThemedText type="secondary" style={styles.saveButtonText}>Save Changes</ThemedText>
-            </TouchableOpacity>
           </ScrollView>
-        </ThemedView>
+        </View>
       </Modal>
-
-      {/* Date/Time Pickers */}
       {showStartPicker && (
         <DateTimePicker
           value={editStartDate}
@@ -769,7 +692,6 @@ export default function TimesheetScreen() {
           onChange={handleStartDateChange}
         />
       )}
-      
       {showEndPicker && (
         <DateTimePicker
           value={editEndDate}
@@ -785,6 +707,17 @@ export default function TimesheetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  modalCardCompact: {
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   weekHeader: {
     flexDirection: 'row',

@@ -49,6 +49,7 @@ const initialTimerState: TimerState = {
 };
 
 export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
+  // ...existing code...
   projects: [],
   tasks: [],
   timeEntries: [],
@@ -81,10 +82,6 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
           ...entry,
           startTime: new Date(entry.startTime),
           endTime: entry.endTime ? new Date(entry.endTime) : undefined,
-          periods: entry.periods ? entry.periods.map((period: any) => ({
-            startTime: new Date(period.startTime),
-            endTime: period.endTime ? new Date(period.endTime) : undefined
-          })) : undefined
         }));
       }
       if (timerStateData) {
@@ -171,10 +168,8 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
       taskId,
       startTime: now,
       endTime: undefined,
-      duration: undefined,
+      duration: 0,
       isRunning: true,
-      isPaused: false,
-      periods: [{ startTime: now, endTime: undefined }],
     };
     const updatedTimeEntries = [...get().timeEntries, newTimeEntry];
     set({ timeEntries: updatedTimeEntries });
@@ -198,10 +193,8 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
       taskId,
       startTime,
       endTime: undefined,
-      duration: undefined,
+      duration: 0,
       isRunning: true,
-      isPaused: false,
-      periods: [{ startTime: now, endTime: undefined }],
     };
     const updatedTimeEntries = [...get().timeEntries, newTimeEntry];
     set({ timeEntries: updatedTimeEntries });
@@ -219,79 +212,30 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     ]);
   },
   pauseTimer: async () => {
-    const timerState = get().timerState;
-    if (!timerState.isRunning || !timerState.currentTimeEntryId) return;
-    const now = new Date();
-    const updatedTimeEntries = get().timeEntries.map(entry => {
-      if (entry.id === timerState.currentTimeEntryId) {
-        const updatedPeriods = entry.periods ? [...entry.periods] : [];
-        if (updatedPeriods.length > 0) {
-          updatedPeriods[updatedPeriods.length - 1] = {
-            ...updatedPeriods[updatedPeriods.length - 1],
-            endTime: now
-          };
-        }
-        return { ...entry, isRunning: false, isPaused: true, periods: updatedPeriods };
-      }
-      return entry;
-    });
-    set({ timeEntries: updatedTimeEntries });
-    const pausedTimerState: TimerState = { ...timerState, isRunning: false, startTime: undefined };
-    set({ timerState: pausedTimerState });
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEYS.TIMER_STATE, JSON.stringify(pausedTimerState)),
-      AsyncStorage.setItem(STORAGE_KEYS.TIME_ENTRIES, JSON.stringify(updatedTimeEntries)),
-    ]);
+  // Pause feature removed
+  return;
   },
   resumeTimer: async () => {
-    const timerState = get().timerState;
-    if (timerState.isRunning || !timerState.currentTimeEntryId) return;
-    const now = new Date();
-    const updatedTimeEntries = get().timeEntries.map(entry => {
-      if (entry.id === timerState.currentTimeEntryId) {
-        const updatedPeriods = entry.periods ? [...entry.periods] : [];
-        updatedPeriods.push({ startTime: now, endTime: undefined });
-        return { ...entry, isRunning: true, isPaused: false, periods: updatedPeriods };
-      }
-      return entry;
-    });
-    set({ timeEntries: updatedTimeEntries });
-    const resumedTimerState: TimerState = { ...timerState, isRunning: true, startTime: now };
-    set({ timerState: resumedTimerState });
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_KEYS.TIMER_STATE, JSON.stringify(resumedTimerState)),
-      AsyncStorage.setItem(STORAGE_KEYS.TIME_ENTRIES, JSON.stringify(updatedTimeEntries)),
-    ]);
+  // Resume feature removed
+  return;
   },
   stopTimer: async () => {
     const timerState = get().timerState;
     if (!timerState.isRunning || !timerState.currentTimeEntryId || !timerState.startTime) return;
     const endTime = new Date();
-    const timeEntry = get().timeEntries.find(entry => entry.id === timerState.currentTimeEntryId);
-    if (!timeEntry) return;
-    let totalDuration = 0;
-    if (timeEntry.periods) {
-      totalDuration = timeEntry.periods.reduce((total, period) => {
-        if (period.endTime) {
-          return total + Math.floor((period.endTime.getTime() - period.startTime.getTime()) / 1000);
-        } else {
-          return total + Math.floor((endTime.getTime() - period.startTime.getTime()) / 1000);
-        }
-      }, 0);
-    }
     const updatedTimeEntries = get().timeEntries.map(entry => {
       if (entry.id === timerState.currentTimeEntryId) {
-        const updatedPeriods = entry.periods ? [...entry.periods] : [];
-        if (updatedPeriods.length > 0) {
-          updatedPeriods[updatedPeriods.length - 1] = {
-            ...updatedPeriods[updatedPeriods.length - 1],
-            endTime: endTime
-          };
-        }
-        return { ...entry, endTime, duration: totalDuration, isRunning: false, isPaused: false, periods: updatedPeriods };
+        const duration = Math.floor((endTime.getTime() - entry.startTime.getTime()) / 1000);
+        return { ...entry, endTime, duration, isRunning: false };
       }
       return entry;
     });
+    // Calculate elapsedSeconds up to stop
+    let elapsedSeconds = timerState.elapsedSeconds || 0;
+    if (timerState.startTime) {
+      const now = new Date();
+      elapsedSeconds += Math.floor((now.getTime() - timerState.startTime.getTime()) / 1000);
+    }
     set({ timeEntries: updatedTimeEntries });
     const stoppedTimerState: TimerState = { isRunning: false, elapsedSeconds: 0 };
     set({ timerState: stoppedTimerState });
@@ -304,7 +248,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   // Time entry actions
   addTimeEntry: async (taskId, startTime, endTime, duration, isRunning = false) => {
     if (!endTime) {
-      const newTimeEntry: TimeEntry = { id: Date.now().toString(), taskId, startTime, endTime: undefined, duration: undefined };
+      const newTimeEntry: TimeEntry = { id: Date.now().toString(), taskId, startTime, endTime: undefined, duration: 0 };
       const updatedTimeEntries = [...get().timeEntries, newTimeEntry];
       set({ timeEntries: updatedTimeEntries });
       await AsyncStorage.setItem(STORAGE_KEYS.TIME_ENTRIES, JSON.stringify(updatedTimeEntries));
@@ -349,7 +293,49 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     await AsyncStorage.setItem(STORAGE_KEYS.TIME_ENTRIES, JSON.stringify(updatedTimeEntries));
   },
   updateTimeEntry: async (entryId, updates) => {
-    const updatedTimeEntries = get().timeEntries.map(entry => entry.id === entryId ? { ...entry, ...updates } : entry);
+    // Find the original entry
+    const originalEntry = get().timeEntries.find(entry => entry.id === entryId);
+    if (!originalEntry) return;
+    const { taskId, startTime, endTime, duration } = { ...originalEntry, ...updates };
+    // If no endTime or start/end on same day, just update as usual
+    const startDate = new Date(startTime);
+    const endDate = endTime ? new Date(endTime) : undefined;
+    const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const endDay = endDate ? new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()) : undefined;
+    let newEntries: TimeEntry[] = [];
+  if (!endDate || (endDay && startDay.getTime() === endDay.getTime())) {
+      // Single entry
+      newEntries = [{
+        ...originalEntry,
+        ...updates,
+        id: Date.now().toString(),
+      }];
+    } else {
+      // Split across days
+      let currentStart = new Date(startTime);
+      let currentId = Date.now();
+      while (currentStart < endDate) {
+        const currentDayEnd = new Date(currentStart);
+        currentDayEnd.setHours(23, 59, 59, 999);
+        const entryEnd = currentDayEnd < endDate ? currentDayEnd : endDate;
+        const segmentDuration = Math.floor((entryEnd.getTime() - currentStart.getTime()) / 1000);
+        newEntries.push({
+          id: currentId.toString(),
+          taskId,
+          startTime: new Date(currentStart),
+          endTime: new Date(entryEnd),
+          duration: segmentDuration,
+        });
+        currentId++;
+        const nextDay = new Date(currentStart);
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDay.setHours(0, 0, 0, 0);
+        currentStart = nextDay;
+      }
+    }
+    // Remove the original entry and add the new split entries
+    const filtered = get().timeEntries.filter(entry => entry.id !== entryId);
+    const updatedTimeEntries = [...filtered, ...newEntries];
     set({ timeEntries: updatedTimeEntries });
     await AsyncStorage.setItem(STORAGE_KEYS.TIME_ENTRIES, JSON.stringify(updatedTimeEntries));
   },

@@ -20,14 +20,8 @@ export interface TimeEntry {
   endTime?: Date;
   duration?: number; // in seconds
   notes?: string;
-  // For running/paused entries
+  // For running entries
   isRunning?: boolean;
-  isPaused?: boolean;
-  // Track multiple start/pause periods
-  periods?: {
-    startTime: Date;
-    endTime?: Date; // undefined if currently running/paused
-  }[];
 }
 
 export interface TimeEntryWithDetails extends TimeEntry {

@@ -187,14 +187,7 @@ function GoalsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      {/* Debug panel only in dev mode */}
-      {__DEV__ && (
-        <DebugPanel
-          onUncompleteToday={handleUncompleteToday}
-          onAdvanceDay={handleAdvanceDay}
-          debugDayOffset={debugDayOffset}
-        />
-      )}
+  {/* Debug panel removed from UI as requested */}
       {/* Streak Text */}
       <View style={{ marginTop: 8, marginBottom: 0, alignItems: 'center' }}>
         <ThemedText type="secondary" style={{
