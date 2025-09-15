@@ -1,50 +1,20 @@
-# Welcome to your Expo app 👋
+# Custom Productivity App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The Custom Productivity App is a personal productivity tool designed to help users manage tasks, track progress, and optimize daily workflow. It is currently in active development.
 
-## Get started
+> **Note:** This app was built with the assistance of AI coding agents to accelerate development and try out modern tools.
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **Time Tracking:** ...
+- ...
 
-2. Start the app
+## Technology
 
-   ```bash
-   npx expo start
-   ```
+- **TypeScript:** ...
+- **Expo & React Native:** ...
+- **AI Coding Agents:** Used for code generation, refactoring, and rapid prototyping.
 
-In the output, you'll find options to open the app in a
+## Development Approach
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+To accelerate development and apply best practices, AI-powered coding agents were an integral part of the workflow, enabling efficient feature implementation and code review.
