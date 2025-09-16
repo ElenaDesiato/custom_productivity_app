@@ -163,12 +163,18 @@ export const useListerStore = create<ListerStoreState>((set, get) => ({
   reorderItems: (listId, newOrder) => {
     const lists = get().lists.map(l => {
       if (l.id !== listId) return l;
+      // Find categoryId for the first item in newOrder
+      const categoryId = l.items.find(i => i.id === newOrder[0])?.categoryId;
+      if (categoryId === undefined) return l;
+      // Reorder only items in the target category
+      const reordered = l.items.map(item => {
+        if (item.categoryId !== categoryId) return item;
+        const idx = newOrder.indexOf(item.id);
+        return idx !== -1 ? { ...item, order: idx } : item;
+      });
       return {
         ...l,
-        items: newOrder.map((itemId, idx) => {
-          const item = l.items.find(i => i.id === itemId);
-          return item ? { ...item, order: idx } : null;
-        }).filter(Boolean) as ListerItem[],
+        items: reordered,
       };
     });
     get().saveState({ lists });
